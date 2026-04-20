@@ -37,8 +37,8 @@ const PARTY_COLORS: Record<string, string> = {
   PP: "#1d84ce",
   VOX: "#63be21",
   Sumar: "#c8287c",
+  // Podemos also covers Unidas Podemos / Unidos Podemos (merged in SQL).
   Podemos: "#793184",
-  "Unidas Podemos": "#793184",
   Ciudadanos: "#eb6909",
   ERC: "#ffb400",
   Junts: "#00a29b",

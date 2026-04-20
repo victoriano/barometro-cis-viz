@@ -65,13 +65,14 @@ function whereClause(filters: FilterState): string {
 export type VotingRow = { date: string; party: string; pct: number };
 
 // Parties we want to highlight; everything else is grouped as "Otros".
+// "Podemos" folds in "Unidas Podemos" / "Unidos Podemos" because they are the
+// same political force rebranded; same for "Sumar" and "Movimiento Sumar".
 const MAIN_PARTIES = [
   "PSOE",
   "PP",
   "VOX",
   "Sumar",
   "Podemos",
-  "Unidas Podemos",
   "Ciudadanos",
   "ERC",
   "Junts",
@@ -82,10 +83,17 @@ const MAIN_PARTIES = [
   "Más País",
 ];
 
+const VOTE_NORMALIZED_SQL = `
+CASE
+  WHEN "Intención de voto en supuestas elecciones generales" IN ('Unidas Podemos', 'Unidos Podemos') THEN 'Podemos'
+  WHEN "Intención de voto en supuestas elecciones generales" = 'Movimiento Sumar' THEN 'Sumar'
+  ELSE "Intención de voto en supuestas elecciones generales"
+END`;
+
 const VOTE_BUCKET_SQL = `
 CASE
-  WHEN "Intención de voto en supuestas elecciones generales" IN (${sqlList(MAIN_PARTIES)}) THEN "Intención de voto en supuestas elecciones generales"
-  WHEN "Intención de voto en supuestas elecciones generales" IN ('No votaría', 'No sabe todavía', 'En blanco', 'Voto nulo', 'N.C.', 'N.S.') THEN NULL
+  WHEN (${VOTE_NORMALIZED_SQL}) IN (${sqlList(MAIN_PARTIES)}) THEN (${VOTE_NORMALIZED_SQL})
+  WHEN (${VOTE_NORMALIZED_SQL}) IN ('No votaría', 'No sabe todavía', 'En blanco', 'Voto nulo', 'N.C.', 'N.S.') THEN NULL
   ELSE 'Otros'
 END`;
 
