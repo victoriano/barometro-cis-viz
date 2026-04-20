@@ -159,34 +159,20 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
       <header className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Barómetro del CIS — evolución del voto y los principales problemas
-          </h1>
-          <ThemeSwitcher />
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Barómetro del CIS — evolución del voto y los principales problemas
+        </h1>
         <p className="text-base-content/70 max-w-3xl">
-          Una visualización del microdato mensual del Centro de Investigaciones
-          Sociológicas. Los datos se cargan en el navegador vía DuckDB-wasm
-          sobre un Parquet publicado en{" "}
+          Un proyecto de Victoriano Izquierdo —{" "}
           <a
             className="link"
-            href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
+            href="https://x.com/victorianoi"
             target="_blank"
             rel="noreferrer"
           >
-            HuggingFace
-          </a>
-          . Código en{" "}
-          <a
-            className="link"
-            href="https://github.com/victoriano/barometro-cis-viz"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-          .
+            @victorianoi
+          </a>{" "}
+          en X.
         </p>
         <div className="flex items-center gap-4">
           <label className="label cursor-pointer gap-3">
@@ -241,17 +227,39 @@ export default function Home() {
         <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
       )}
 
-      <footer className="border-t border-base-300 pt-4 text-xs text-base-content/60">
-        Datos: Centro de Investigaciones Sociológicas (CIS). Pipeline:{" "}
-        <a
-          className="link"
-          href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Spain/barometro_cis
-        </a>
-        . Los barómetros previos a 2021 no incluyen columna de ponderación.
+      <footer className="flex flex-col gap-3 border-t border-base-300 pt-4 text-xs text-base-content/60 sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          Datos: Centro de Investigaciones Sociológicas (CIS). Código y
+          documentación técnica en{" "}
+          <a
+            className="link"
+            href="https://github.com/victoriano/barometro-cis-viz"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/victoriano/barometro-cis-viz
+          </a>
+          . Pipeline de datos en{" "}
+          <a
+            className="link"
+            href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
+            target="_blank"
+            rel="noreferrer"
+          >
+            social-sciences-microdata
+          </a>
+          . Dataset publicado en{" "}
+          <a
+            className="link"
+            href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
+            target="_blank"
+            rel="noreferrer"
+          >
+            HuggingFace
+          </a>
+          .
+        </p>
+        <ThemeSwitcher />
       </footer>
     </main>
   );
