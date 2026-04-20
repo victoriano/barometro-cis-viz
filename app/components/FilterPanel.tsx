@@ -9,6 +9,7 @@ const FACET_LABELS: Record<FacetKey, string> = {
   estudios: "Estudios",
   clase: "Clase social",
   ideologia: "Ideología (1-10)",
+  ultimoVoto: "Recuerdo últimas elecciones",
 };
 
 type Props = {
@@ -34,6 +35,7 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
       estudios: [],
       clase: [],
       ideologia: [],
+      ultimoVoto: [],
     });
 
   const activeTotal = Object.values(filters).reduce((n, arr) => n + arr.length, 0);

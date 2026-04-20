@@ -7,6 +7,7 @@ export type FilterState = {
   estudios: string[];
   clase: string[];
   ideologia: string[];
+  ultimoVoto: string[];
 };
 
 export const EMPTY_FILTERS: FilterState = {
@@ -16,6 +17,7 @@ export const EMPTY_FILTERS: FilterState = {
   estudios: [],
   clase: [],
   ideologia: [],
+  ultimoVoto: [],
 };
 
 // DuckDB needs identifiers in double quotes when they contain spaces or accents.
@@ -59,6 +61,7 @@ function whereClause(filters: FilterState): string {
   if (filters.estudios.length) clauses.push(`"Estudios de la persona entrevistada" IN (${sqlList(filters.estudios)})`);
   if (filters.clase.length) clauses.push(`"Clase social subjetiva de la persona entrevistada" IN (${sqlList(filters.clase)})`);
   if (filters.ideologia.length) clauses.push(`(${IDEOLOGIA_BUCKET_SQL}) IN (${sqlList(filters.ideologia)})`);
+  if (filters.ultimoVoto.length) clauses.push(`"ultimo_voto_recordado" IN (${sqlList(filters.ultimoVoto)})`);
   return clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 }
 
@@ -261,6 +264,11 @@ export async function fetchFacetValues(): Promise<Record<keyof FilterState, Face
     UNION ALL
     SELECT 'ideologia', ${IDEOLOGIA_BUCKET_SQL}, COUNT(*)
       FROM barometros WHERE "Escala de autoubicación ideológica (1-10)" IS NOT NULL GROUP BY 1, 2
+    UNION ALL
+    SELECT 'ultimoVoto', "ultimo_voto_recordado", COUNT(*)
+      FROM barometros WHERE "ultimo_voto_recordado" IS NOT NULL
+        AND "ultimo_voto_recordado" NOT IN ('N.C.', 'N.S.', 'No recuerda', 'En blanco', 'Voto nulo')
+      GROUP BY 1, 2
   `;
   const rows = await runQuery<{ facet: string; value: string | null; n: number }>(sql);
   const out: Record<string, FacetValue[]> = {
@@ -270,6 +278,7 @@ export async function fetchFacetValues(): Promise<Record<keyof FilterState, Face
     estudios: [],
     clase: [],
     ideologia: [],
+    ultimoVoto: [],
   };
   for (const row of rows) {
     if (!row.value) continue;

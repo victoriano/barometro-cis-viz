@@ -31,13 +31,11 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-// Electoral colors so the chart looks familiar at first glance.
 const PARTY_COLORS: Record<string, string> = {
   PSOE: "#e30613",
   PP: "#1d84ce",
   VOX: "#63be21",
   Sumar: "#c8287c",
-  // Podemos also covers Unidas Podemos / Unidos Podemos (merged in SQL).
   Podemos: "#793184",
   Ciudadanos: "#eb6909",
   ERC: "#ffb400",
@@ -50,17 +48,17 @@ const PARTY_COLORS: Record<string, string> = {
   Otros: "#6b7280",
 };
 
-// Series the user almost never wants on screen on the default view.
 const DEFAULT_HIDDEN_PARTIES = ["Otros"];
 
-/** Order series by their value on the most recent month, descending. */
+const SHEET_MAX_HEIGHT = "55vh";
+
 function orderByLastMonth<T extends { date: string; series: string; value: number }>(
   rows: T[],
 ): string[] {
   if (rows.length === 0) return [];
   const lastDate = rows.reduce((max, r) => (r.date > max ? r.date : max), "");
-  const lastMonth = rows.filter((r) => r.date === lastDate);
-  return lastMonth
+  return rows
+    .filter((r) => r.date === lastDate)
     .sort((a, b) => b.value - a.value)
     .map((r) => r.series);
 }
@@ -68,6 +66,7 @@ function orderByLastMonth<T extends { date: string; series: string; value: numbe
 export default function Home() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [weighted, setWeighted] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [facets, setFacets] = useState<Record<keyof FilterState, FacetValue[]> | null>(null);
   const [vote, setVote] = useState<VotingRow[]>([]);
   const [problems, setProblems] = useState<ProblemRow[]>([]);
@@ -75,7 +74,6 @@ export default function Home() {
   const [busy, setBusy] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Initial boot: warm up DuckDB + facets.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -96,7 +94,6 @@ export default function Home() {
     };
   }, []);
 
-  // Refresh chart data on filter / weighted toggle.
   useEffect(() => {
     if (!booted) return;
     let cancelled = false;
@@ -156,111 +153,164 @@ export default function Home() {
     return acc;
   }, [problemSeries]);
 
+  const activeFilters = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
+
   return (
-    <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Barómetro del CIS — evolución del voto y los principales problemas
-        </h1>
-        <p className="text-base-content/70 max-w-3xl">
-          Un proyecto de{" "}
-          <a
-            className="link"
-            href="https://x.com/victorianoi"
-            target="_blank"
-            rel="noreferrer"
+    <>
+      <main
+        className="mx-auto max-w-6xl space-y-8 px-4 py-8"
+        style={{ paddingBottom: sheetOpen ? SHEET_MAX_HEIGHT : undefined }}
+      >
+        <header className="space-y-3">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Barómetro del CIS — evolución del voto y los principales problemas
+          </h1>
+          <p className="text-base-content/70 max-w-3xl">
+            Un proyecto de{" "}
+            <a
+              className="link"
+              href="https://x.com/victorianoi"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Victoriano Izquierdo
+            </a>
+            .
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="label cursor-pointer gap-3">
+              <span className="text-sm font-medium">
+                {weighted ? "Ponderado" : "Crudo"}
+              </span>
+              <input
+                type="checkbox"
+                className="toggle toggle-primary"
+                checked={weighted}
+                onChange={(e) => setWeighted(e.target.checked)}
+              />
+              <span className="text-xs text-base-content/60">
+                {weighted
+                  ? "usa Ponderación (falta en barómetros antiguos)"
+                  : "cuenta por respondiente"}
+              </span>
+            </label>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={() => setSheetOpen((o) => !o)}
+            >
+              {sheetOpen ? "Ocultar filtros" : "Filtros"}
+              {activeFilters > 0 && (
+                <span className="badge badge-primary badge-sm">{activeFilters}</span>
+              )}
+            </button>
+          </div>
+        </header>
+
+        {errorMsg && (
+          <div className="alert alert-error">
+            <span>⚠️ {errorMsg}</span>
+          </div>
+        )}
+
+        <section className="space-y-4">
+          <TimeSeriesChart
+            title="Intención de voto en elecciones generales"
+            data={voteSeries}
+            colors={PARTY_COLORS}
+            seriesOrder={voteOrder}
+            hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
+            loading={busy}
+          />
+        </section>
+
+        <section className="space-y-4">
+          <TimeSeriesChart
+            title="Principales problemas (% de respondientes que lo mencionan)"
+            data={problemSeries}
+            colors={problemColors}
+            seriesOrder={problemOrder}
+            seriesLabel={problemLegendLabel}
+            endLabelFormatter={problemEmoji}
+            loading={busy}
+          />
+        </section>
+
+        <footer className="flex flex-col gap-3 border-t border-base-300 pt-4 text-xs text-base-content/60 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Datos: Centro de Investigaciones Sociológicas (CIS). Código y
+            documentación técnica en{" "}
+            <a
+              className="link"
+              href="https://github.com/victoriano/barometro-cis-viz"
+              target="_blank"
+              rel="noreferrer"
+            >
+              github.com/victoriano/barometro-cis-viz
+            </a>
+            . Pipeline de datos en{" "}
+            <a
+              className="link"
+              href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
+              target="_blank"
+              rel="noreferrer"
+            >
+              social-sciences-microdata
+            </a>
+            . Dataset publicado en{" "}
+            <a
+              className="link"
+              href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
+              target="_blank"
+              rel="noreferrer"
+            >
+              HuggingFace
+            </a>
+            .
+          </p>
+          <ThemeSwitcher />
+        </footer>
+      </main>
+
+      {/* Bottom sheet — overlays the footer but leaves charts visible above.
+          No backdrop so the user can keep interacting with the charts (scroll,
+          tooltip, legend) while adjusting filters. Transform-based slide keeps
+          the layout stable. */}
+      <aside
+        aria-hidden={!sheetOpen}
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-2 sm:px-4"
+      >
+        <div
+          className={`pointer-events-auto w-full max-w-6xl rounded-t-2xl border border-base-300 bg-base-100/95 shadow-2xl backdrop-blur transition-transform duration-300 ease-out ${
+            sheetOpen ? "translate-y-0" : "translate-y-full"
+          }`}
+          style={{ maxHeight: SHEET_MAX_HEIGHT }}
+        >
+          <div className="flex items-center justify-between border-b border-base-300 px-4 py-2">
+            <h2 className="text-sm font-semibold">
+              Filtros{activeFilters > 0 ? ` · ${activeFilters} activos` : ""}
+            </h2>
+            <button
+              type="button"
+              aria-label="Cerrar filtros"
+              className="btn btn-ghost btn-sm btn-square"
+              onClick={() => setSheetOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+          <div
+            className="overflow-y-auto px-4 py-4"
+            style={{ maxHeight: `calc(${SHEET_MAX_HEIGHT} - 3rem)` }}
           >
-            Victoriano Izquierdo
-          </a>
-          .
-        </p>
-        <div className="flex items-center gap-4">
-          <label className="label cursor-pointer gap-3">
-            <span className="text-sm font-medium">
-              {weighted ? "Ponderado" : "Crudo"}
-            </span>
-            <input
-              type="checkbox"
-              className="toggle toggle-primary"
-              checked={weighted}
-              onChange={(e) => setWeighted(e.target.checked)}
-            />
-            <span className="text-xs text-base-content/60">
-              {weighted
-                ? "usa Ponderación (falta en barómetros antiguos)"
-                : "cuenta por respondiente"}
-            </span>
-          </label>
+            {facets ? (
+              <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
+            ) : (
+              <p className="text-sm text-base-content/60">Cargando datos…</p>
+            )}
+          </div>
         </div>
-      </header>
-
-      {errorMsg && (
-        <div className="alert alert-error">
-          <span>⚠️ {errorMsg}</span>
-        </div>
-      )}
-
-      <section className="space-y-4">
-        <TimeSeriesChart
-          title="Intención de voto en elecciones generales"
-          data={voteSeries}
-          colors={PARTY_COLORS}
-          seriesOrder={voteOrder}
-          hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
-          loading={busy}
-        />
-      </section>
-
-      <section className="space-y-4">
-        <TimeSeriesChart
-          title="Principales problemas (% de respondientes que lo mencionan)"
-          data={problemSeries}
-          colors={problemColors}
-          seriesOrder={problemOrder}
-          seriesLabel={problemLegendLabel}
-          endLabelFormatter={problemEmoji}
-          loading={busy}
-        />
-      </section>
-
-      {facets && (
-        <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
-      )}
-
-      <footer className="flex flex-col gap-3 border-t border-base-300 pt-4 text-xs text-base-content/60 sm:flex-row sm:items-center sm:justify-between">
-        <p>
-          Datos: Centro de Investigaciones Sociológicas (CIS). Código y
-          documentación técnica en{" "}
-          <a
-            className="link"
-            href="https://github.com/victoriano/barometro-cis-viz"
-            target="_blank"
-            rel="noreferrer"
-          >
-            github.com/victoriano/barometro-cis-viz
-          </a>
-          . Pipeline de datos en{" "}
-          <a
-            className="link"
-            href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
-            target="_blank"
-            rel="noreferrer"
-          >
-            social-sciences-microdata
-          </a>
-          . Dataset publicado en{" "}
-          <a
-            className="link"
-            href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
-            target="_blank"
-            rel="noreferrer"
-          >
-            HuggingFace
-          </a>
-          .
-        </p>
-        <ThemeSwitcher />
-      </footer>
-    </main>
+      </aside>
+    </>
   );
 }
