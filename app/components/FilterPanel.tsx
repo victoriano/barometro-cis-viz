@@ -13,6 +13,7 @@ type Props = {
   facets: Record<FacetKey, FacetValue[]>;
   filters: FilterState;
   onChange: (next: FilterState) => void;
+  hideHeader?: boolean;
 };
 
 const FACET_SQL_LABEL: Partial<Record<FacetKey, string>> = {
@@ -33,7 +34,7 @@ const FACET_SQL_LABEL: Partial<Record<FacetKey, string>> = {
   ultimoVoto: "recuerdo_voto",
 };
 
-export function FilterPanel({ facets, filters, onChange }: Props) {
+export function FilterPanel({ facets, filters, onChange, hideHeader = false }: Props) {
   const theme = useResolvedTheme();
   const t = TOKENS[theme];
 
@@ -51,32 +52,34 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
 
   return (
     <section className="space-y-2">
-      <div
-        className="flex items-center justify-between uppercase"
-        style={{
-          fontFamily: MONO,
-          fontSize: 10,
-          letterSpacing: 0.8,
-          color: t.textDim,
-        }}
-      >
-        <span>Filtros · demográficos</span>
-        <button
-          type="button"
-          disabled={activeTotal === 0}
-          onClick={clearAll}
-          className="cursor-pointer uppercase disabled:cursor-default"
+      {!hideHeader && (
+        <div
+          className="flex items-center justify-between uppercase"
           style={{
-            background: "transparent",
-            border: "none",
             fontFamily: MONO,
             fontSize: 10,
-            color: activeTotal ? t.accent : t.textMute,
+            letterSpacing: 0.8,
+            color: t.textDim,
           }}
         >
-          [ clear {activeTotal || ""} ]
-        </button>
-      </div>
+          <span>Filtros · demográficos</span>
+          <button
+            type="button"
+            disabled={activeTotal === 0}
+            onClick={clearAll}
+            className="cursor-pointer uppercase disabled:cursor-default"
+            style={{
+              background: "transparent",
+              border: "none",
+              fontFamily: MONO,
+              fontSize: 10,
+              color: activeTotal ? t.accent : t.textMute,
+            }}
+          >
+            [ clear {activeTotal || ""} ]
+          </button>
+        </div>
+      )}
 
       {activeTotal > 0 && (
         <div

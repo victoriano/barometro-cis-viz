@@ -137,6 +137,11 @@ export default function Home() {
   const [benefitsParty, setBenefitsParty] = useState<string>("all");
   const [harmsParty, setHarmsParty] = useState<string>("all");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState<"filters" | "events">("events");
+  const filtersOpen = sidebarOpen === "filters";
+  const eventsOpen = sidebarOpen === "events";
+  const toggleSidebar = () =>
+    setSidebarOpen((s) => (s === "filters" ? "events" : "filters"));
 
   const [facets, setFacets] = useState<Record<FacetKey, FacetValue[]> | null>(null);
   const [metaInfo, setMetaInfo] = useState<Meta | null>(null);
@@ -1067,56 +1072,172 @@ export default function Home() {
           overflow: "hidden",
         }}
       >
-        <div
+        <section
           style={{
-            padding: "16px 16px 8px",
-            overflowY: "auto",
-            flex: "0 1 45%",
+            flex: filtersOpen ? "1 1 auto" : "0 0 auto",
             minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
             borderBottom: `1px solid ${t.line}`,
+            overflow: "hidden",
           }}
         >
-          {facets ? (
-            <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
-          ) : (
-            <div
-              style={{
-                fontFamily: MONO,
-                fontSize: 11,
-                color: t.textMute,
-                letterSpacing: 0.5,
-              }}
-            >
-              ▌ cargando facetas…
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            style={{
+              flexShrink: 0,
+              padding: "10px 14px",
+              background: t.bg2,
+              border: "none",
+              borderBottom: filtersOpen ? `1px solid ${t.line}` : "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: 0.8,
+              color: t.textDim,
+              textTransform: "uppercase",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "left",
+            }}
+          >
+            <span>
+              {filtersOpen ? "▾" : "▸"} filtros demográficos
+              {activeFilters > 0 && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    padding: "1px 6px",
+                    background: t.accent,
+                    color: "#0b0d10",
+                    borderRadius: 2,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {activeFilters}
+                </span>
+              )}
+            </span>
+            {filtersOpen && activeFilters > 0 && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilters(EMPTY_FILTERS);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setFilters(EMPTY_FILTERS);
+                  }
+                }}
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 9,
+                  color: t.accent,
+                  letterSpacing: 0.4,
+                  cursor: "pointer",
+                }}
+              >
+                [ clear ]
+              </span>
+            )}
+          </button>
+          {filtersOpen && (
+            <div style={{ padding: "12px 16px", overflowY: "auto", flex: 1, minHeight: 0 }}>
+              {facets ? (
+                <FilterPanel
+                  facets={facets}
+                  filters={filters}
+                  onChange={setFilters}
+                  hideHeader
+                />
+              ) : (
+                <div
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 11,
+                    color: t.textMute,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  ▌ cargando facetas…
+                </div>
+              )}
             </div>
           )}
-        </div>
-        <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex" }}>
-          <NewsFeed
-            partyOrder={partyOrder}
-            benefits={benefitsParty}
-            harms={harmsParty}
-            onBenefitsChange={setBenefitsParty}
-            onHarmsChange={setHarmsParty}
-            selectedEventId={selectedEventId}
-            onEventSelect={setSelectedEventId}
-          />
-        </div>
-        <div
+        </section>
+        <section
           style={{
-            padding: "12px 14px",
-            fontFamily: MONO,
-            fontSize: 9.5,
-            color: t.textMute,
-            letterSpacing: 0.4,
-            borderTop: `1px solid ${t.line}`,
-            background: t.bg2,
+            flex: eventsOpen ? "1 1 auto" : "0 0 auto",
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
-          QUERY · duckdb-wasm · PARQUET · processed_barometros
-          <br />
-          ROWS · {metaInfo ? fmtNum(metaInfo.respondents) : "…"} · COLS · 98
-        </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            style={{
+              flexShrink: 0,
+              padding: "10px 14px",
+              background: t.bg2,
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: 0.8,
+              color: t.textDim,
+              textTransform: "uppercase",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "left",
+            }}
+          >
+            <span>
+              {eventsOpen ? "▾" : "▸"} eventos políticos
+              {selectedEventId && (
+                <span
+                  style={{
+                    marginLeft: 8,
+                    padding: "1px 6px",
+                    background: t.accent,
+                    color: "#0b0d10",
+                    borderRadius: 2,
+                    fontSize: 9,
+                    fontWeight: 700,
+                  }}
+                >
+                  ★
+                </span>
+              )}
+            </span>
+          </button>
+          {eventsOpen && (
+            <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+              <NewsFeed
+                partyOrder={partyOrder}
+                benefits={benefitsParty}
+                harms={harmsParty}
+                onBenefitsChange={setBenefitsParty}
+                onHarmsChange={setHarmsParty}
+                selectedEventId={selectedEventId}
+                onEventSelect={setSelectedEventId}
+                hideHeader
+              />
+            </div>
+          )}
+        </section>
       </aside>
 
       <AboutModal

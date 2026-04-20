@@ -16,6 +16,7 @@ type Props = {
   onHarmsChange?: (v: string) => void;
   selectedEventId?: string | null;
   onEventSelect?: (id: string | null) => void;
+  hideHeader?: boolean;
 };
 
 export function NewsFeed({
@@ -27,6 +28,7 @@ export function NewsFeed({
   onHarmsChange,
   selectedEventId,
   onEventSelect,
+  hideHeader = false,
 }: Props = {}) {
   const theme = useResolvedTheme();
   const t = TOKENS[theme];
@@ -131,27 +133,29 @@ export function NewsFeed({
         minHeight: 0,
       }}
     >
-      <div
-        style={{
-          padding: "10px 14px",
-          borderBottom: `1px solid ${t.line}`,
-          borderTop: `1px solid ${t.lineHi}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          fontFamily: MONO,
-          fontSize: 10,
-          letterSpacing: 0.8,
-          color: t.textDim,
-          textTransform: "uppercase",
-          background: t.bg2,
-        }}
-      >
-        <span>▸ Eventos · qué explica los cambios</span>
-        <span style={{ color: t.textMute, fontVariantNumeric: "tabular-nums" }}>
-          {events.length} / {POLITICAL_EVENTS.length}
-        </span>
-      </div>
+      {!hideHeader && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderBottom: `1px solid ${t.line}`,
+            borderTop: `1px solid ${t.lineHi}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontFamily: MONO,
+            fontSize: 10,
+            letterSpacing: 0.8,
+            color: t.textDim,
+            textTransform: "uppercase",
+            background: t.bg2,
+          }}
+        >
+          <span>▸ Eventos · qué explica los cambios</span>
+          <span style={{ color: t.textMute, fontVariantNumeric: "tabular-nums" }}>
+            {events.length} / {POLITICAL_EVENTS.length}
+          </span>
+        </div>
+      )}
       <div
         style={{
           display: "flex",
