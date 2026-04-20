@@ -10,10 +10,12 @@ import {
 } from "../lib/problems";
 import {
   EMPTY_FILTERS,
+  fetchBlocEvolution,
   fetchFacetValues,
   fetchProblemEvolution,
   fetchTopProblems,
   fetchVoteEvolution,
+  type BlocRow,
   type FacetValue,
   type FilterState,
   type ProblemRow,
@@ -50,6 +52,14 @@ const PARTY_COLORS: Record<string, string> = {
 
 const DEFAULT_HIDDEN_PARTIES = ["Otros"];
 
+// Left/right uses muted variants of the two dominant party colors so the
+// bloc chart reads as a coarser summary of the detailed chart below it.
+const BLOC_COLORS: Record<string, string> = {
+  Izquierda: "#e30613",
+  Derecha: "#1d84ce",
+  Otros: "#9ca3af",
+};
+
 function orderByLastMonth<T extends { date: string; series: string; value: number }>(
   rows: T[],
 ): string[] {
@@ -65,6 +75,7 @@ export default function Home() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [weighted, setWeighted] = useState(false);
   const [facets, setFacets] = useState<Record<keyof FilterState, FacetValue[]> | null>(null);
+  const [bloc, setBloc] = useState<BlocRow[]>([]);
   const [vote, setVote] = useState<VotingRow[]>([]);
   const [problems, setProblems] = useState<ProblemRow[]>([]);
   const [booted, setBooted] = useState(false);
@@ -97,12 +108,14 @@ export default function Home() {
     (async () => {
       setBusy(true);
       try {
-        const [voteRows, topProblems] = await Promise.all([
+        const [blocRows, voteRows, topProblems] = await Promise.all([
+          fetchBlocEvolution(filters, weighted),
           fetchVoteEvolution(filters, weighted),
           fetchTopProblems(filters, weighted),
         ]);
         const problemRows = await fetchProblemEvolution(filters, weighted, topProblems);
         if (cancelled) return;
+        setBloc(blocRows);
         setVote(voteRows);
         setProblems(problemRows);
         setErrorMsg(null);
@@ -118,6 +131,16 @@ export default function Home() {
       cancelled = true;
     };
   }, [filters, weighted, booted]);
+
+  const blocSeries: TimeSeriesPoint[] = useMemo(
+    () =>
+      bloc.map((r) => ({
+        date: r.date,
+        series: r.bloc,
+        value: Number(r.pct),
+      })),
+    [bloc],
+  );
 
   const voteSeries: TimeSeriesPoint[] = useMemo(
     () =>
@@ -139,6 +162,7 @@ export default function Home() {
     [problems],
   );
 
+  const blocOrder = useMemo(() => orderByLastMonth(blocSeries), [blocSeries]);
   const voteOrder = useMemo(() => orderByLastMonth(voteSeries), [voteSeries]);
   const problemOrder = useMemo(() => orderByLastMonth(problemSeries), [problemSeries]);
 
@@ -199,6 +223,18 @@ export default function Home() {
           below update. Below lg the sidebar drops under the charts. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-6">
+          <section>
+            <TimeSeriesChart
+              title="Bloques políticos — izquierda vs derecha"
+              data={blocSeries}
+              colors={BLOC_COLORS}
+              seriesOrder={blocOrder}
+              hiddenByDefault={["Otros"]}
+              loading={busy}
+              height={320}
+            />
+          </section>
+
           <section>
             <TimeSeriesChart
               title="Intención de voto en elecciones generales"

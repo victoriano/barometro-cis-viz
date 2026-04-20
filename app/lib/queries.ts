@@ -100,6 +100,63 @@ CASE
   ELSE 'Otros'
 END`;
 
+// Coarse left/right bloc classification. Regional parties are allocated by
+// how they commonly align on national confidence votes; EAJ-PNV sits with the
+// centre-right bloc, Bildu/ERC/BNG/CUP with the left. Non-classifiable
+// options ("Otros partido") go to "Otros" so the three series sum to 100%.
+const BLOC_SQL = `
+CASE
+  WHEN (${VOTE_NORMALIZED_SQL}) IN (
+    'PSOE', 'Sumar', 'Podemos', 'Más País',
+    'ERC', 'Bildu', 'EH Bildu', 'BNG', 'CUP',
+    'Compromís', 'En Comú Podem', 'IU'
+  ) THEN 'Izquierda'
+  WHEN (${VOTE_NORMALIZED_SQL}) IN (
+    'PP', 'VOX', 'Ciudadanos', 'Junts',
+    'EAJ-PNV', 'UPN', 'Coalición Canaria', 'Navarra Suma'
+  ) THEN 'Derecha'
+  WHEN (${VOTE_NORMALIZED_SQL}) IN ('No votaría', 'No sabe todavía', 'En blanco', 'Voto nulo', 'N.C.', 'N.S.') THEN NULL
+  ELSE 'Otros'
+END`;
+
+export type BlocRow = { date: string; bloc: string; pct: number };
+
+export async function fetchBlocEvolution(
+  filters: FilterState,
+  weighted: boolean,
+): Promise<BlocRow[]> {
+  const weight = weighted ? PESO_SQL : "1.0";
+  const where = whereClause(filters);
+  const sql = `
+    WITH base AS (
+      SELECT date_of_study,
+             ${BLOC_SQL} AS bloc,
+             ${weight} AS w
+      FROM barometros
+      ${where}
+    ),
+    per_date AS (
+      SELECT date_of_study,
+             SUM(w) FILTER (WHERE bloc IS NOT NULL) AS total_w
+      FROM base
+      GROUP BY 1
+    ),
+    per_bloc AS (
+      SELECT date_of_study, bloc, SUM(w) AS w
+      FROM base
+      WHERE bloc IS NOT NULL
+      GROUP BY 1, 2
+    )
+    SELECT strftime(p.date_of_study, '%Y-%m-%d') AS date,
+           p.bloc AS bloc,
+           CAST(p.w AS DOUBLE) / t.total_w AS pct
+    FROM per_bloc p JOIN per_date t USING (date_of_study)
+    WHERE t.total_w > 0
+    ORDER BY p.date_of_study, p.bloc
+  `;
+  return runQuery<BlocRow>(sql);
+}
+
 export async function fetchVoteEvolution(
   filters: FilterState,
   weighted: boolean,

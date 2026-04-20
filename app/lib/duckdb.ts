@@ -36,8 +36,15 @@ async function create(): Promise<DuckDB> {
   await db.registerFileBuffer("barometros.parquet", parquetBytes);
 
   const conn = await db.connect();
+  // Expose only "Barómetros CIS mensuales". The raw file also contains health
+  // barometers (Barómetro Sanitario) and annual aggregates (tipo
+  // 'agregado_oleadas'); mixing those with the monthly political barometer
+  // produces visible sampling spikes in the vote-intention chart.
   await conn.query(
-    `CREATE VIEW barometros AS SELECT * FROM read_parquet('barometros.parquet')`
+    `CREATE VIEW barometros AS
+       SELECT *
+       FROM read_parquet('barometros.parquet')
+       WHERE tipo_barometro = 'mensual'`
   );
 
   return { db, conn };
