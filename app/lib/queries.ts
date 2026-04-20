@@ -225,10 +225,15 @@ function normalizeProblemSQL(col: string): string {
 // change to pick which problems show in the chart.
 function whereAnd(filters: FilterState, extra: string): string {
   // Combine the demographic WHERE with an extra predicate ("Primer problema IS NOT NULL"),
-  // handling the case where the demographic filter is empty.
+  // handling the case where the demographic filter is empty. We also restrict
+  // to barómetros whose Primer/Segundo/Tercer problema question asks about
+  // problems in Spain — a handful of estudios (e.g. MD3468 in July 2024) reuse
+  // the same column names for a monographic module on *international*
+  // problems, which otherwise produces a phantom dip in the chart.
+  const scope = `problemas_ambito = 'españa'`;
   const base = whereClause(filters); // "" or "WHERE …"
-  if (base) return `${base} AND ${extra}`;
-  return `WHERE ${extra}`;
+  if (base) return `${base} AND ${scope} AND ${extra}`;
+  return `WHERE ${scope} AND ${extra}`;
 }
 
 export async function fetchTopProblems(
@@ -264,7 +269,6 @@ export async function fetchProblemEvolution(
 ): Promise<ProblemRow[]> {
   if (problems.length === 0) return [];
   const weight = weighted ? PESO_SQL : "1.0";
-  const where = whereClause(filters);
   const list = sqlList(problems);
   const sql = `
     WITH long AS (
@@ -278,10 +282,15 @@ export async function fetchProblemEvolution(
         FROM barometros ${whereAnd(filters, '"Tercer problema" IS NOT NULL')}
     ),
     denom AS (
-      -- Total respondent-weight per month, counting each respondent once.
+      -- Total respondent-weight per month. Restrict to estudios whose
+      -- Primer/Segundo/Tercer problema asks about Spain so the denominator
+      -- matches the numerator (otherwise MD3468's 4k international-module
+      -- respondents would dilute July 2024 to near-zero). whereAnd() already
+      -- injects the ambito predicate; TRUE keeps the SQL well-formed when no
+      -- demographic filters are active.
       SELECT date_of_study, SUM(${weight}) AS total_w
       FROM barometros
-      ${where}
+      ${whereAnd(filters, "TRUE")}
       GROUP BY 1
     ),
     per AS (
