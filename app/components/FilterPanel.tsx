@@ -1,16 +1,10 @@
-import type { FacetValue, FilterState } from "../lib/queries";
-
-type FacetKey = keyof FilterState;
-
-const FACET_LABELS: Record<FacetKey, string> = {
-  sexo: "Sexo",
-  edadBucket: "Edad",
-  ccaa: "Comunidad autónoma",
-  estudios: "Estudios",
-  clase: "Clase social",
-  ideologia: "Ideología (1-10)",
-  ultimoVoto: "Recuerdo últimas elecciones",
-};
+import {
+  EMPTY_FILTERS,
+  FACETS,
+  type FacetKey,
+  type FacetValue,
+  type FilterState,
+} from "../lib/queries";
 
 type Props = {
   facets: Record<FacetKey, FacetValue[]>;
@@ -23,6 +17,13 @@ type Props = {
   variant?: "stacked" | "grid";
 };
 
+function formatPct(pct: number): string {
+  if (pct <= 0) return "0%";
+  if (pct < 0.01) return "<1%";
+  if (pct < 0.1) return `${(pct * 100).toFixed(1)}%`;
+  return `${Math.round(pct * 100)}%`;
+}
+
 export function FilterPanel({ facets, filters, onChange, variant = "grid" }: Props) {
   const toggle = (key: FacetKey, value: string) => {
     const current = filters[key];
@@ -32,16 +33,7 @@ export function FilterPanel({ facets, filters, onChange, variant = "grid" }: Pro
     onChange({ ...filters, [key]: next });
   };
   const clearKey = (key: FacetKey) => onChange({ ...filters, [key]: [] });
-  const clearAll = () =>
-    onChange({
-      sexo: [],
-      edadBucket: [],
-      ccaa: [],
-      estudios: [],
-      clase: [],
-      ideologia: [],
-      ultimoVoto: [],
-    });
+  const clearAll = () => onChange({ ...EMPTY_FILTERS });
 
   const activeTotal = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
 
@@ -66,22 +58,21 @@ export function FilterPanel({ facets, filters, onChange, variant = "grid" }: Pro
         </button>
       </header>
       <div className={gridClass}>
-        {(Object.keys(FACET_LABELS) as FacetKey[]).map((key) => {
-          const label = FACET_LABELS[key];
-          const values = facets[key] ?? [];
-          const active = new Set(filters[key]);
+        {FACETS.map((facet) => {
+          const values = facets[facet.key] ?? [];
+          const active = new Set(filters[facet.key] ?? []);
           if (values.length === 0) return null;
           return (
-            <div key={key} className="space-y-1.5">
+            <div key={facet.key} className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-base-content/80">
-                  {label}
+                  {facet.label}
                 </span>
                 {active.size > 0 && (
                   <button
                     type="button"
                     className="link link-hover text-[11px] text-base-content/60"
-                    onClick={() => clearKey(key)}
+                    onClick={() => clearKey(facet.key)}
                   >
                     reset
                   </button>
@@ -94,13 +85,14 @@ export function FilterPanel({ facets, filters, onChange, variant = "grid" }: Pro
                     <button
                       key={v.value}
                       type="button"
-                      onClick={() => toggle(key, v.value)}
-                      className={`badge badge-xs text-[11px] leading-4 px-2 py-2 whitespace-nowrap ${
+                      onClick={() => toggle(facet.key, v.value)}
+                      className={`badge badge-xs text-[11px] leading-4 px-2 py-2 whitespace-nowrap gap-1 ${
                         selected ? "badge-primary" : "badge-outline"
                       }`}
-                      title={`${v.count.toLocaleString("es-ES")} respuestas`}
+                      title={`${v.count.toLocaleString("es-ES")} respuestas · ${(v.pct * 100).toFixed(1)}%`}
                     >
-                      {v.value}
+                      <span>{v.value}</span>
+                      <span className="opacity-60">{formatPct(v.pct)}</span>
                     </button>
                   );
                 })}
