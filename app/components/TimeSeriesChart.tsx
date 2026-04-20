@@ -269,11 +269,11 @@ export function TimeSeriesChart({
           color: t.textMute,
           fontFamily: MONO,
           fontSize: 10,
-          interval: Math.max(1, Math.floor(dates.length / 10)),
-          formatter: (value: string) => {
-            const [y, m] = value.split("-");
-            return m === "01" ? y : "";
-          },
+          // Always render a label on the January tick of each year — every
+          // other date stays blank. Using a predicate is more reliable than
+          // `interval: number` when dates don't start on Jan-01.
+          interval: (_i: number, v: string) => v.endsWith("-01-01"),
+          formatter: (value: string) => value.slice(0, 4),
         },
         splitLine: {
           show: true,

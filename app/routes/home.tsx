@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Route } from "./+types/home";
 import { AboutModal } from "../components/AboutModal";
-import { ChartBlock } from "../components/ChartBlock";
+import { ChartBlock, type ChartMode } from "../components/ChartBlock";
 import { FilterPanel } from "../components/FilterPanel";
 import { KpiRow, type Kpi } from "../components/KpiRow";
 import { MoversStrip, type Mover } from "../components/MoversStrip";
 import { NewsFeed } from "../components/NewsFeed";
+import { SmallMultiples } from "../components/SmallMultiples";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { TimeSeriesChart, type TimeSeriesPoint } from "../components/TimeSeriesChart";
 import { POLITICAL_EVENTS } from "../lib/events";
@@ -117,6 +118,11 @@ export default function Home() {
   const [weighted, setWeighted] = useState(true);
   const [changeWindow, setChangeWindow] = useState(3);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [chartModes, setChartModes] = useState<Record<"bloques" | "voto" | "problemas", ChartMode>>({
+    bloques: "lines",
+    voto: "lines",
+    problemas: "lines",
+  });
 
   const [facets, setFacets] = useState<Record<FacetKey, FacetValue[]> | null>(null);
   const [metaInfo, setMetaInfo] = useState<Meta | null>(null);
@@ -527,50 +533,89 @@ export default function Home() {
         <ChartBlock
           title="Bloques políticos · izquierda vs derecha"
           sub={`% intención voto · ${weighted ? "ponderado" : "crudo"}`}
+          mode={chartModes.bloques}
+          onModeChange={(m) => setChartModes((p) => ({ ...p, bloques: m }))}
         >
-          <TimeSeriesChart
-            data={blocSeries}
-            baselineData={activeFilters > 0 ? blocBaseline : undefined}
-            colors={BLOC_COLORS}
-            seriesOrder={blocOrder}
-            hiddenByDefault={["Otros"]}
-            events={POLITICAL_EVENTS}
-            loading={busy}
-            height={220}
-          />
+          {chartModes.bloques === "lines" ? (
+            <TimeSeriesChart
+              data={blocSeries}
+              baselineData={activeFilters > 0 ? blocBaseline : undefined}
+              colors={BLOC_COLORS}
+              seriesOrder={blocOrder}
+              hiddenByDefault={["Otros"]}
+              events={POLITICAL_EVENTS}
+              loading={busy}
+              height={220}
+            />
+          ) : (
+            <SmallMultiples
+              data={blocSeries}
+              seriesOrder={blocOrder}
+              colors={BLOC_COLORS}
+              events={POLITICAL_EVENTS}
+              columns={3}
+              hiddenByDefault={["Otros"]}
+            />
+          )}
         </ChartBlock>
 
         <ChartBlock
           title="Intención de voto · elecciones generales"
           sub="top 8 · resto → Otros"
+          mode={chartModes.voto}
+          onModeChange={(m) => setChartModes((p) => ({ ...p, voto: m }))}
         >
-          <TimeSeriesChart
-            data={voteSeries}
-            baselineData={activeFilters > 0 ? voteBaseline : undefined}
-            colors={PARTY_COLORS}
-            seriesOrder={voteOrder}
-            hiddenByDefault={HIDDEN_PARTIES}
-            events={POLITICAL_EVENTS.filter((e) => e.kind === "election")}
-            loading={busy}
-            height={280}
-          />
+          {chartModes.voto === "lines" ? (
+            <TimeSeriesChart
+              data={voteSeries}
+              baselineData={activeFilters > 0 ? voteBaseline : undefined}
+              colors={PARTY_COLORS}
+              seriesOrder={voteOrder}
+              hiddenByDefault={HIDDEN_PARTIES}
+              events={POLITICAL_EVENTS.filter((e) => e.kind === "election")}
+              loading={busy}
+              height={280}
+            />
+          ) : (
+            <SmallMultiples
+              data={voteSeries}
+              seriesOrder={voteOrder.slice(0, 8)}
+              colors={PARTY_COLORS}
+              events={POLITICAL_EVENTS.filter((e) => e.kind === "election")}
+              columns={4}
+              hiddenByDefault={HIDDEN_PARTIES}
+            />
+          )}
         </ChartBlock>
 
         <ChartBlock
           title="Principales problemas · % respondientes que lo mencionan"
           sub={`${new Set(problemSeries.map((p) => p.series)).size} series · top por último mes`}
+          mode={chartModes.problemas}
+          onModeChange={(m) => setChartModes((p) => ({ ...p, problemas: m }))}
         >
-          <TimeSeriesChart
-            data={problemSeries}
-            baselineData={activeFilters > 0 ? problemBaseline : undefined}
-            colors={problemColors}
-            seriesOrder={problemOrder}
-            seriesLabel={problemLegendLabel}
-            endLabelFormatter={problemEmoji}
-            events={POLITICAL_EVENTS.filter((e) => e.kind === "crisis")}
-            loading={busy}
-            height={260}
-          />
+          {chartModes.problemas === "lines" ? (
+            <TimeSeriesChart
+              data={problemSeries}
+              baselineData={activeFilters > 0 ? problemBaseline : undefined}
+              colors={problemColors}
+              seriesOrder={problemOrder}
+              seriesLabel={problemLegendLabel}
+              endLabelFormatter={problemEmoji}
+              events={POLITICAL_EVENTS.filter((e) => e.kind === "crisis")}
+              loading={busy}
+              height={260}
+            />
+          ) : (
+            <SmallMultiples
+              data={problemSeries}
+              seriesOrder={problemOrder}
+              colors={problemColors}
+              seriesLabel={problemLegendLabel}
+              events={POLITICAL_EVENTS.filter((e) => e.kind === "crisis")}
+              columns={4}
+            />
+          )}
         </ChartBlock>
       </div>
 
