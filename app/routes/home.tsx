@@ -507,6 +507,7 @@ export default function Home() {
             hiddenByDefault={["Otros"]}
             events={chartEvents}
             highlightedEventId={selectedEventId}
+            onEventClick={setSelectedEventId}
             loading={busy}
             height={isMobile ? 200 : 220}
           />
@@ -546,6 +547,7 @@ export default function Home() {
             hiddenByDefault={HIDDEN_PARTIES}
             events={voteChartEvents}
             highlightedEventId={selectedEventId}
+            onEventClick={setSelectedEventId}
             loading={busy}
             height={isMobile ? 240 : 280}
           />
@@ -586,6 +588,7 @@ export default function Home() {
             endLabelFormatter={problemEmoji}
             events={problemsChartEvents}
             highlightedEventId={selectedEventId}
+            onEventClick={setSelectedEventId}
             loading={busy}
             height={isMobile ? 220 : 260}
           />

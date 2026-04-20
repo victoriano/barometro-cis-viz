@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EventImpact, EventKind, PoliticalEvent } from "../lib/events";
 import { EVENT_KIND_LABEL, POLITICAL_EVENTS } from "../lib/events";
 import { PARTY_COLORS, MONO, SANS, TOKENS } from "../lib/theme";
@@ -40,6 +40,21 @@ export function NewsFeed({
   const setBenefits = onBenefitsChange ?? setBenefitsLocal;
   const setHarms = onHarmsChange ?? setHarmsLocal;
   const [expanded, setExpanded] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  // External selection (e.g. chart markLine click): auto-expand the card
+  // and scroll it into view inside the feed's scroll container.
+  useEffect(() => {
+    if (!selectedEventId) return;
+    setExpanded(selectedEventId);
+    const frame = requestAnimationFrame(() => {
+      const el = listRef.current?.querySelector(
+        `[data-event-id="${selectedEventId}"]`,
+      ) as HTMLElement | null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedEventId]);
 
   const years = useMemo(() => {
     const set = new Set<number>();
@@ -57,7 +72,7 @@ export function NewsFeed({
   }, [partyOrder]);
 
   const events = useMemo(() => {
-    return POLITICAL_EVENTS.filter((e) => {
+    const matches = POLITICAL_EVENTS.filter((e) => {
       if (kindFilter !== "all" && e.kind !== kindFilter) return false;
       if (e.relevance < minRelevance) return false;
       if (yearFilter !== "all" && !e.date.startsWith(String(yearFilter))) return false;
@@ -72,10 +87,16 @@ export function NewsFeed({
       )
         return false;
       return true;
-    })
-      .slice()
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [kindFilter, minRelevance, yearFilter, benefits, harms]);
+    });
+    // Always surface the externally-selected event even if the current
+    // filter set would otherwise hide it — so chart->feed navigation
+    // always lands on a visible card.
+    if (selectedEventId && !matches.some((e) => e.id === selectedEventId)) {
+      const sel = POLITICAL_EVENTS.find((e) => e.id === selectedEventId);
+      if (sel) matches.push(sel);
+    }
+    return matches.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [kindFilter, minRelevance, yearFilter, benefits, harms, selectedEventId]);
 
   const dotColor = (kind: EventKind): string => {
     if (kind === "election") return t.accent;
@@ -238,7 +259,7 @@ export function NewsFeed({
           />
         </div>
       </div>
-      <div style={{ overflow: "auto", flex: 1 }}>
+      <div ref={listRef} style={{ overflow: "auto", flex: 1 }}>
         {events.length === 0 && (
           <div
             style={{
@@ -259,6 +280,7 @@ export function NewsFeed({
           return (
             <div
               key={key}
+              data-event-id={e.id}
               onClick={() => {
                 setExpanded(isExp ? null : key);
                 onEventClick?.(e);

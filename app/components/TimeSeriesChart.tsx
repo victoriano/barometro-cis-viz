@@ -30,6 +30,7 @@ type Props = {
   baselineData?: TimeSeriesPoint[];
   events?: PoliticalEvent[];
   highlightedEventId?: string | null;
+  onEventClick?: (id: string) => void;
   loading?: boolean;
   height?: number;
 };
@@ -70,6 +71,7 @@ export function TimeSeriesChart({
   baselineData,
   events = [],
   highlightedEventId,
+  onEventClick,
   loading = false,
   height = 260,
 }: Props) {
@@ -246,7 +248,7 @@ export function TimeSeriesChart({
             ? {
                 symbol: "pin",
                 symbolSize: 32,
-                silent: true,
+                silent: false,
                 itemStyle: {
                   color: t.accent,
                   borderColor: t.accent,
@@ -262,6 +264,7 @@ export function TimeSeriesChart({
                 },
                 data: [
                   {
+                    name: highlightedEvent.id,
                     xAxis: `${highlightedEvent.date.slice(0, 7)}-01`,
                     y: 0,
                   },
@@ -500,6 +503,17 @@ export function TimeSeriesChart({
         option={option}
         style={{ height, width: "100%" }}
         notMerge
+        onEvents={{
+          click: (params: { componentType?: string; name?: string }) => {
+            if (
+              params.componentType === "markLine" ||
+              params.componentType === "markPoint" ||
+              params.componentType === "markArea"
+            ) {
+              if (params.name) onEventClick?.(params.name);
+            }
+          },
+        }}
       />
     </div>
   );
