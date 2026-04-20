@@ -13,6 +13,7 @@ type Props = {
   columns?: number;
   cellHeight?: number;
   hiddenByDefault?: string[];
+  windowMonths?: number;
 };
 
 /** Grid of small-multiples sparklines, one per series. */
@@ -25,14 +26,14 @@ export function SmallMultiples({
   columns = 4,
   cellHeight = 96,
   hiddenByDefault,
+  windowMonths = 12,
 }: Props) {
   const theme = useResolvedTheme();
   const t = TOKENS[theme];
 
   const hidden = useMemo(() => new Set(hiddenByDefault ?? []), [hiddenByDefault]);
 
-  // Build per-series sorted arrays.
-  const { seriesMap, dates, globalMax } = useMemo(() => {
+  const { seriesMap, dates } = useMemo(() => {
     const byKey = new Map<string, Map<string, number>>();
     const dateSet = new Set<string>();
     for (const row of data) {
@@ -42,14 +43,18 @@ export function SmallMultiples({
     }
     const sortedDates = Array.from(dateSet).sort();
     const series = new Map<string, (number | null)[]>();
-    let max = 0;
     for (const [key, map] of byKey) {
-      const values = sortedDates.map((d) => map.get(d) ?? null);
-      series.set(key, values);
-      for (const v of values) if (v != null && v > max) max = v;
+      series.set(key, sortedDates.map((d) => map.get(d) ?? null));
     }
-    return { seriesMap: series, dates: sortedDates, globalMax: max * 1.1 };
+    return { seriesMap: series, dates: sortedDates };
   }, [data]);
+
+  const effectiveWindow = Math.min(
+    Math.max(1, windowMonths),
+    Math.max(1, dates.length),
+  );
+  const sliceStart = Math.max(0, dates.length - effectiveWindow);
+  const windowDates = dates.slice(sliceStart);
 
   const visibleSeries = seriesOrder.filter(
     (k) => seriesMap.has(k) && !hidden.has(k),
@@ -70,11 +75,12 @@ export function SmallMultiples({
       }}
     >
       {visibleSeries.map((key, idx) => {
-        const values = seriesMap.get(key) ?? [];
+        const fullValues = seriesMap.get(key) ?? [];
+        const values = fullValues.slice(sliceStart);
         const label = seriesLabel ? seriesLabel(key) : key;
         const color = colors?.[key] ?? "#888";
         const last = lastVal(values);
-        const chg = changeOver(values, 12);
+        const chg = windowChange(values);
         const col = idx % columns;
         const row = Math.floor(idx / columns);
         return (
@@ -145,11 +151,10 @@ export function SmallMultiples({
             </div>
             <MiniAreaSvg
               values={values}
-              dates={dates}
+              dates={windowDates}
               events={events}
               color={color}
               height={cellHeight}
-              yMax={globalMax}
             />
             <div
               style={{
@@ -163,7 +168,7 @@ export function SmallMultiples({
                 textTransform: "uppercase",
               }}
             >
-              <span>12m</span>
+              <span>{effectiveWindow}m</span>
               <span
                 style={{
                   color:
@@ -193,7 +198,6 @@ type MiniProps = {
   events?: PoliticalEvent[];
   color: string;
   height: number;
-  yMax?: number | null;
 };
 
 function MiniAreaSvg({
@@ -202,7 +206,6 @@ function MiniAreaSvg({
   events = [],
   color,
   height,
-  yMax,
 }: MiniProps) {
   const theme = useResolvedTheme();
   const t = TOKENS[theme];
@@ -226,8 +229,12 @@ function MiniAreaSvg({
   if (!validVals.length)
     return <div ref={ref} style={{ height, width: "100%" }} />;
 
-  const max = yMax && yMax > 0 ? yMax : Math.max(...validVals) * 1.1;
-  const min = 0;
+  const rawMin = Math.min(...validVals);
+  const rawMax = Math.max(...validVals);
+  const span = rawMax - rawMin;
+  const yPad = span > 0 ? span * 0.15 : Math.max(rawMax * 0.05, 0.001);
+  const min = Math.max(0, rawMin - yPad);
+  const max = rawMax + yPad;
   const xOf = (i: number) =>
     pad.l + (i / Math.max(1, values.length - 1)) * chartW;
   const yOf = (v: number) =>
@@ -315,19 +322,21 @@ function lastVal(values: (number | null)[]): number | null {
   return null;
 }
 
-function changeOver(values: (number | null)[], n: number): number | null {
-  let curIdx = -1;
-  for (let i = values.length - 1; i >= 0; i--) {
+function windowChange(values: (number | null)[]): number | null {
+  let first: number | null = null;
+  let last: number | null = null;
+  for (let i = 0; i < values.length; i++) {
     if (values[i] != null) {
-      curIdx = i;
+      first = values[i] as number;
       break;
     }
   }
-  if (curIdx < 0) return null;
-  const prevIdx = Math.max(0, curIdx - n);
-  for (let i = prevIdx; i >= 0; i--) {
-    if (values[i] != null)
-      return (values[curIdx] as number) - (values[i] as number);
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (values[i] != null) {
+      last = values[i] as number;
+      break;
+    }
   }
-  return null;
+  if (first == null || last == null) return null;
+  return last - first;
 }

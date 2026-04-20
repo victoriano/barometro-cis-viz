@@ -7,6 +7,7 @@ import { KpiRow, type Kpi } from "../components/KpiRow";
 import { MoversStrip, type Mover } from "../components/MoversStrip";
 import { NewsFeed } from "../components/NewsFeed";
 import { SmallMultiples } from "../components/SmallMultiples";
+import { WindowSelector } from "../components/WindowSelector";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { TimeSeriesChart, type TimeSeriesPoint } from "../components/TimeSeriesChart";
 import { POLITICAL_EVENTS } from "../lib/events";
@@ -122,6 +123,11 @@ export default function Home() {
     bloques: "lines",
     voto: "lines",
     problemas: "lines",
+  });
+  const [mmWindows, setMmWindows] = useState<Record<"bloques" | "voto" | "problemas", number>>({
+    bloques: 12,
+    voto: 12,
+    problemas: 12,
   });
 
   const [facets, setFacets] = useState<Record<FacetKey, FacetValue[]> | null>(null);
@@ -535,6 +541,14 @@ export default function Home() {
           sub={`% intención voto · ${weighted ? "ponderado" : "crudo"}`}
           mode={chartModes.bloques}
           onModeChange={(m) => setChartModes((p) => ({ ...p, bloques: m }))}
+          right={
+            chartModes.bloques === "multiples" ? (
+              <WindowSelector
+                windowMonths={mmWindows.bloques}
+                onWindowChange={(n) => setMmWindows((p) => ({ ...p, bloques: n }))}
+              />
+            ) : undefined
+          }
         >
           {chartModes.bloques === "lines" ? (
             <TimeSeriesChart
@@ -555,6 +569,7 @@ export default function Home() {
               events={POLITICAL_EVENTS}
               columns={3}
               hiddenByDefault={["Otros"]}
+              windowMonths={mmWindows.bloques}
             />
           )}
         </ChartBlock>
@@ -564,6 +579,14 @@ export default function Home() {
           sub="top 8 · resto → Otros"
           mode={chartModes.voto}
           onModeChange={(m) => setChartModes((p) => ({ ...p, voto: m }))}
+          right={
+            chartModes.voto === "multiples" ? (
+              <WindowSelector
+                windowMonths={mmWindows.voto}
+                onWindowChange={(n) => setMmWindows((p) => ({ ...p, voto: n }))}
+              />
+            ) : undefined
+          }
         >
           {chartModes.voto === "lines" ? (
             <TimeSeriesChart
@@ -584,6 +607,7 @@ export default function Home() {
               events={POLITICAL_EVENTS.filter((e) => e.kind === "election")}
               columns={4}
               hiddenByDefault={HIDDEN_PARTIES}
+              windowMonths={mmWindows.voto}
             />
           )}
         </ChartBlock>
@@ -593,6 +617,14 @@ export default function Home() {
           sub={`${new Set(problemSeries.map((p) => p.series)).size} series · top por último mes`}
           mode={chartModes.problemas}
           onModeChange={(m) => setChartModes((p) => ({ ...p, problemas: m }))}
+          right={
+            chartModes.problemas === "multiples" ? (
+              <WindowSelector
+                windowMonths={mmWindows.problemas}
+                onWindowChange={(n) => setMmWindows((p) => ({ ...p, problemas: n }))}
+              />
+            ) : undefined
+          }
         >
           {chartModes.problemas === "lines" ? (
             <TimeSeriesChart
@@ -614,6 +646,7 @@ export default function Home() {
               seriesLabel={problemLegendLabel}
               events={POLITICAL_EVENTS.filter((e) => e.kind === "crisis")}
               columns={4}
+              windowMonths={mmWindows.problemas}
             />
           )}
         </ChartBlock>
