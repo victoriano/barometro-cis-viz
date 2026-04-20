@@ -78,6 +78,11 @@ export default function Home() {
   const [bloc, setBloc] = useState<BlocRow[]>([]);
   const [vote, setVote] = useState<VotingRow[]>([]);
   const [problems, setProblems] = useState<ProblemRow[]>([]);
+  // Unfiltered baseline — refetched whenever the weighted toggle flips so the
+  // "vs muestra total" tooltip delta stays consistent with the active mode.
+  const [baselineBloc, setBaselineBloc] = useState<BlocRow[]>([]);
+  const [baselineVote, setBaselineVote] = useState<VotingRow[]>([]);
+  const [baselineProblems, setBaselineProblems] = useState<ProblemRow[]>([]);
   const [booted, setBooted] = useState(false);
   const [busy, setBusy] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -101,6 +106,36 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  // Baseline: same shape as filtered, but over the whole sample. Cached per
+  // weighted-mode so switching filters doesn't re-query it.
+  useEffect(() => {
+    if (!booted) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [blocRows, voteRows, topProblems] = await Promise.all([
+          fetchBlocEvolution(EMPTY_FILTERS, weighted),
+          fetchVoteEvolution(EMPTY_FILTERS, weighted),
+          fetchTopProblems(EMPTY_FILTERS, weighted),
+        ]);
+        const problemRows = await fetchProblemEvolution(
+          EMPTY_FILTERS,
+          weighted,
+          topProblems,
+        );
+        if (cancelled) return;
+        setBaselineBloc(blocRows);
+        setBaselineVote(voteRows);
+        setBaselineProblems(problemRows);
+      } catch (err) {
+        console.error("baseline fetch failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [weighted, booted]);
 
   useEffect(() => {
     if (!booted) return;
@@ -142,6 +177,12 @@ export default function Home() {
     [bloc],
   );
 
+  const blocBaselineSeries: TimeSeriesPoint[] = useMemo(
+    () =>
+      baselineBloc.map((r) => ({ date: r.date, series: r.bloc, value: Number(r.pct) })),
+    [baselineBloc],
+  );
+
   const voteSeries: TimeSeriesPoint[] = useMemo(
     () =>
       vote.map((r) => ({
@@ -152,6 +193,12 @@ export default function Home() {
     [vote],
   );
 
+  const voteBaselineSeries: TimeSeriesPoint[] = useMemo(
+    () =>
+      baselineVote.map((r) => ({ date: r.date, series: r.party, value: Number(r.pct) })),
+    [baselineVote],
+  );
+
   const problemSeries: TimeSeriesPoint[] = useMemo(
     () =>
       problems.map((r) => ({
@@ -160,6 +207,12 @@ export default function Home() {
         value: Number(r.pct),
       })),
     [problems],
+  );
+
+  const problemBaselineSeries: TimeSeriesPoint[] = useMemo(
+    () =>
+      baselineProblems.map((r) => ({ date: r.date, series: r.problema, value: Number(r.pct) })),
+    [baselineProblems],
   );
 
   const blocOrder = useMemo(() => orderByLastMonth(blocSeries), [blocSeries]);
@@ -173,6 +226,8 @@ export default function Home() {
     }
     return acc;
   }, [problemSeries]);
+
+  const activeFilters = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
 
   return (
     <main className="mx-auto max-w-[1440px] space-y-6 px-4 py-8">
@@ -227,6 +282,7 @@ export default function Home() {
             <TimeSeriesChart
               title="Bloques políticos — izquierda vs derecha"
               data={blocSeries}
+              baselineData={activeFilters > 0 ? blocBaselineSeries : undefined}
               colors={BLOC_COLORS}
               seriesOrder={blocOrder}
               hiddenByDefault={["Otros"]}
@@ -239,6 +295,7 @@ export default function Home() {
             <TimeSeriesChart
               title="Intención de voto en elecciones generales"
               data={voteSeries}
+              baselineData={activeFilters > 0 ? voteBaselineSeries : undefined}
               colors={PARTY_COLORS}
               seriesOrder={voteOrder}
               hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
@@ -250,6 +307,7 @@ export default function Home() {
             <TimeSeriesChart
               title="Principales problemas (% de respondientes que lo mencionan)"
               data={problemSeries}
+              baselineData={activeFilters > 0 ? problemBaselineSeries : undefined}
               colors={problemColors}
               seriesOrder={problemOrder}
               seriesLabel={problemLegendLabel}
