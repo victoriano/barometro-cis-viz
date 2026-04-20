@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { MONO, TOKENS } from "../lib/theme";
+import { useResolvedTheme } from "../lib/useResolvedTheme";
 
 type Theme = "auto" | "light" | "dark";
 const STORAGE_KEY = "barometro-cis-viz:theme";
@@ -12,18 +14,18 @@ function readStoredTheme(): Theme {
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === "auto") {
-    // No data-theme lets DaisyUI fall back to the --default / --prefersdark
-    // rule configured in app.css, which honours the OS color-scheme.
     root.removeAttribute("data-theme");
   } else {
     root.setAttribute("data-theme", theme);
   }
 }
 
+/** Segmented mono toggle used in the topbar. Defaults to "auto". */
 export function ThemeSwitcher() {
   const [theme, setTheme] = useState<Theme>("auto");
+  const resolved = useResolvedTheme();
+  const t = TOKENS[resolved];
 
-  // Hydrate from localStorage on mount (SPA: no SSR mismatch to worry about).
   useEffect(() => {
     const stored = readStoredTheme();
     setTheme(stored);
@@ -40,33 +42,45 @@ export function ThemeSwitcher() {
     }
   };
 
-  const options: { value: Theme; label: string; icon: string }[] = [
-    { value: "auto", label: "Auto", icon: "🖥️" },
-    { value: "light", label: "Claro", icon: "☀️" },
-    { value: "dark", label: "Oscuro", icon: "🌙" },
-  ];
+  const buttonStyle = (active: boolean): React.CSSProperties => ({
+    padding: "4px 10px",
+    fontFamily: MONO,
+    fontSize: 10.5,
+    letterSpacing: 0.5,
+    background: active ? t.accent : "transparent",
+    color: active ? "#0b0d10" : t.textDim,
+    border: `1px solid ${t.line}`,
+    cursor: "pointer",
+    textTransform: "uppercase",
+    marginLeft: -1,
+  });
 
   return (
-    <div
-      role="group"
-      aria-label="Tema"
-      className="join border-base-300 border"
-    >
-      {options.map((opt) => {
-        const active = theme === opt.value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => update(opt.value)}
-            aria-pressed={active}
-            className={`btn btn-sm join-item ${active ? "btn-primary" : "btn-ghost"}`}
-          >
-            <span aria-hidden>{opt.icon}</span>
-            <span className="hidden sm:inline">{opt.label}</span>
-          </button>
-        );
-      })}
+    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+      <button
+        type="button"
+        onClick={() => update("dark")}
+        style={buttonStyle(theme === "dark")}
+        title="Modo oscuro"
+      >
+        ☾ oscuro
+      </button>
+      <button
+        type="button"
+        onClick={() => update("light")}
+        style={buttonStyle(theme === "light")}
+        title="Modo claro"
+      >
+        ☀ claro
+      </button>
+      <button
+        type="button"
+        onClick={() => update("auto")}
+        style={buttonStyle(theme === "auto")}
+        title="Según SO"
+      >
+        ◐ auto
+      </button>
     </div>
   );
 }

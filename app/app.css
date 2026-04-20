@@ -4,15 +4,55 @@
 }
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    Menlo, monospace;
 }
 
 html,
 body {
-  @apply bg-base-100 text-base-content;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  background: #f6f4ef;
+  color: #17181a;
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #0b0d10;
+  color: #e4e7eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]),
+  html:not([data-theme="light"]) body {
+    background: #0b0d10;
+    color: #e4e7eb;
   }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Tabular-nums everywhere we use IBM Plex Mono — keeps columns steady. */
+.font-mono,
+[style*="IBM Plex Mono"] {
+  font-variant-numeric: tabular-nums;
 }

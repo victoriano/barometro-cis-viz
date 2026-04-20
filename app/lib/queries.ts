@@ -379,6 +379,35 @@ const FACET_VALUE_BLACKLIST = new Set<string>([
   "Otros",
 ]);
 
+export type Meta = {
+  waves: number;
+  respondents: number;
+  rangeStart: string; // YYYY-MM-01
+  rangeEnd: string;
+};
+
+export async function fetchMeta(): Promise<Meta> {
+  const rows = await runQuery<{
+    waves: number | bigint;
+    respondents: number | bigint;
+    range_start: string;
+    range_end: string;
+  }>(`
+    SELECT COUNT(DISTINCT date_of_study) AS waves,
+           COUNT(*) AS respondents,
+           strftime(MIN(date_of_study), '%Y-%m-%d') AS range_start,
+           strftime(MAX(date_of_study), '%Y-%m-%d') AS range_end
+    FROM barometros
+  `);
+  const row = rows[0];
+  return {
+    waves: Number(row.waves),
+    respondents: Number(row.respondents),
+    rangeStart: row.range_start,
+    rangeEnd: row.range_end,
+  };
+}
+
 export async function fetchFacetValues(): Promise<Record<FacetKey, FacetValue[]>> {
   // One UNION ALL query per facet so DuckDB only scans the table once.
   const subqueries = FACETS.map(
