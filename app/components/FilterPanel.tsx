@@ -41,39 +41,43 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
   const activeTotal = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <header className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Cross-filtros demográficos</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-base-content/70">
+          Cross-filtros demográficos
+        </h2>
         <button
           type="button"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-xs"
           onClick={clearAll}
           disabled={activeTotal === 0}
         >
-          Limpiar ({activeTotal})
+          Limpiar{activeTotal > 0 ? ` · ${activeTotal}` : ""}
         </button>
       </header>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
         {(Object.keys(FACET_LABELS) as FacetKey[]).map((key) => {
           const label = FACET_LABELS[key];
           const values = facets[key] ?? [];
           const active = new Set(filters[key]);
           if (values.length === 0) return null;
           return (
-            <div key={key} className="rounded-box border border-base-300 bg-base-100 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium">{label}</span>
+            <div key={key} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-base-content/80">
+                  {label}
+                </span>
                 {active.size > 0 && (
                   <button
                     type="button"
-                    className="link link-hover text-xs"
+                    className="link link-hover text-[11px] text-base-content/60"
                     onClick={() => clearKey(key)}
                   >
                     reset
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-1">
                 {values.map((v) => {
                   const selected = active.has(v.value);
                   return (
@@ -81,7 +85,7 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
                       key={v.value}
                       type="button"
                       onClick={() => toggle(key, v.value)}
-                      className={`badge text-xs whitespace-nowrap ${
+                      className={`badge badge-xs text-[11px] leading-4 px-2 py-2 whitespace-nowrap ${
                         selected ? "badge-primary" : "badge-outline"
                       }`}
                       title={`${v.count.toLocaleString("es-ES")} respuestas`}

@@ -50,7 +50,7 @@ const PARTY_COLORS: Record<string, string> = {
 
 const DEFAULT_HIDDEN_PARTIES = ["Otros"];
 
-const SHEET_MAX_HEIGHT = "55vh";
+const SHEET_MAX_HEIGHT = "42vh";
 
 function orderByLastMonth<T extends { date: string; series: string; value: number }>(
   rows: T[],

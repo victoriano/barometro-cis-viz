@@ -121,6 +121,9 @@ export function TimeSeriesChart({
       },
       tooltip: {
         trigger: "axis",
+        // Sort series in the tooltip from highest to lowest value at the
+        // hovered x so the ranking is obvious at a glance.
+        order: "valueDesc" as const,
         axisPointer: { type: "line", lineStyle: { color: t.muted } },
         backgroundColor: t.tooltipBg,
         borderColor: t.tooltipBorder,
