@@ -16,9 +16,14 @@ type Props = {
   facets: Record<FacetKey, FacetValue[]>;
   filters: FilterState;
   onChange: (next: FilterState) => void;
+  /**
+   * ``stacked`` fits the panel in a narrow sidebar (single column).
+   * ``grid`` spreads the facets over 2-3 columns when given full width.
+   */
+  variant?: "stacked" | "grid";
 };
 
-export function FilterPanel({ facets, filters, onChange }: Props) {
+export function FilterPanel({ facets, filters, onChange, variant = "grid" }: Props) {
   const toggle = (key: FacetKey, value: string) => {
     const current = filters[key];
     const next = current.includes(value)
@@ -40,11 +45,16 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
 
   const activeTotal = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
 
+  const gridClass =
+    variant === "stacked"
+      ? "flex flex-col gap-4"
+      : "grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3";
+
   return (
     <section className="space-y-3">
       <header className="flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-base-content/70">
-          Cross-filtros demográficos
+          Filtros demográficos
         </h2>
         <button
           type="button"
@@ -55,7 +65,7 @@ export function FilterPanel({ facets, filters, onChange }: Props) {
           Limpiar{activeTotal > 0 ? ` · ${activeTotal}` : ""}
         </button>
       </header>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className={gridClass}>
         {(Object.keys(FACET_LABELS) as FacetKey[]).map((key) => {
           const label = FACET_LABELS[key];
           const values = facets[key] ?? [];

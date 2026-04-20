@@ -50,8 +50,6 @@ const PARTY_COLORS: Record<string, string> = {
 
 const DEFAULT_HIDDEN_PARTIES = ["Otros"];
 
-const SHEET_MAX_HEIGHT = "42vh";
-
 function orderByLastMonth<T extends { date: string; series: string; value: number }>(
   rows: T[],
 ): string[] {
@@ -66,7 +64,6 @@ function orderByLastMonth<T extends { date: string; series: string; value: numbe
 export default function Home() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [weighted, setWeighted] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [facets, setFacets] = useState<Record<keyof FilterState, FacetValue[]> | null>(null);
   const [vote, setVote] = useState<VotingRow[]>([]);
   const [problems, setProblems] = useState<ProblemRow[]>([]);
@@ -153,164 +150,129 @@ export default function Home() {
     return acc;
   }, [problemSeries]);
 
-  const activeFilters = Object.values(filters).reduce((n, arr) => n + arr.length, 0);
-
   return (
-    <>
-      <main
-        className="mx-auto max-w-6xl space-y-8 px-4 py-8"
-        style={{ paddingBottom: sheetOpen ? SHEET_MAX_HEIGHT : undefined }}
-      >
-        <header className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Barómetro del CIS — evolución del voto y los principales problemas
-          </h1>
-          <p className="text-base-content/70 max-w-3xl">
-            Un proyecto de{" "}
-            <a
-              className="link"
-              href="https://x.com/victorianoi"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Victoriano Izquierdo
-            </a>
-            .
-          </p>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="label cursor-pointer gap-3">
-              <span className="text-sm font-medium">
-                {weighted ? "Ponderado" : "Crudo"}
-              </span>
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={weighted}
-                onChange={(e) => setWeighted(e.target.checked)}
-              />
-              <span className="text-xs text-base-content/60">
-                {weighted
-                  ? "usa Ponderación (falta en barómetros antiguos)"
-                  : "cuenta por respondiente"}
-              </span>
-            </label>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              onClick={() => setSheetOpen((o) => !o)}
-            >
-              {sheetOpen ? "Ocultar filtros" : "Filtros"}
-              {activeFilters > 0 && (
-                <span className="badge badge-primary badge-sm">{activeFilters}</span>
-              )}
-            </button>
-          </div>
-        </header>
-
-        {errorMsg && (
-          <div className="alert alert-error">
-            <span>⚠️ {errorMsg}</span>
-          </div>
-        )}
-
-        <section className="space-y-4">
-          <TimeSeriesChart
-            title="Intención de voto en elecciones generales"
-            data={voteSeries}
-            colors={PARTY_COLORS}
-            seriesOrder={voteOrder}
-            hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
-            loading={busy}
-          />
-        </section>
-
-        <section className="space-y-4">
-          <TimeSeriesChart
-            title="Principales problemas (% de respondientes que lo mencionan)"
-            data={problemSeries}
-            colors={problemColors}
-            seriesOrder={problemOrder}
-            seriesLabel={problemLegendLabel}
-            endLabelFormatter={problemEmoji}
-            loading={busy}
-          />
-        </section>
-
-        <footer className="flex flex-col gap-3 border-t border-base-300 pt-4 text-xs text-base-content/60 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            Datos: Centro de Investigaciones Sociológicas (CIS). Código y
-            documentación técnica en{" "}
-            <a
-              className="link"
-              href="https://github.com/victoriano/barometro-cis-viz"
-              target="_blank"
-              rel="noreferrer"
-            >
-              github.com/victoriano/barometro-cis-viz
-            </a>
-            . Pipeline de datos en{" "}
-            <a
-              className="link"
-              href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
-              target="_blank"
-              rel="noreferrer"
-            >
-              social-sciences-microdata
-            </a>
-            . Dataset publicado en{" "}
-            <a
-              className="link"
-              href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
-              target="_blank"
-              rel="noreferrer"
-            >
-              HuggingFace
-            </a>
-            .
-          </p>
-          <ThemeSwitcher />
-        </footer>
-      </main>
-
-      {/* Bottom sheet — overlays the footer but leaves charts visible above.
-          No backdrop so the user can keep interacting with the charts (scroll,
-          tooltip, legend) while adjusting filters. Transform-based slide keeps
-          the layout stable. */}
-      <aside
-        aria-hidden={!sheetOpen}
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-2 sm:px-4"
-      >
-        <div
-          className={`pointer-events-auto w-full max-w-6xl rounded-t-2xl border border-base-300 bg-base-100/95 shadow-2xl backdrop-blur transition-transform duration-300 ease-out ${
-            sheetOpen ? "translate-y-0" : "translate-y-full"
-          }`}
-          style={{ maxHeight: SHEET_MAX_HEIGHT }}
-        >
-          <div className="flex items-center justify-between border-b border-base-300 px-4 py-2">
-            <h2 className="text-sm font-semibold">
-              Filtros{activeFilters > 0 ? ` · ${activeFilters} activos` : ""}
-            </h2>
-            <button
-              type="button"
-              aria-label="Cerrar filtros"
-              className="btn btn-ghost btn-sm btn-square"
-              onClick={() => setSheetOpen(false)}
-            >
-              ✕
-            </button>
-          </div>
-          <div
-            className="overflow-y-auto px-4 py-4"
-            style={{ maxHeight: `calc(${SHEET_MAX_HEIGHT} - 3rem)` }}
+    <main className="mx-auto max-w-[1440px] space-y-6 px-4 py-8">
+      <header className="space-y-3">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Barómetro del CIS — evolución del voto y los principales problemas
+        </h1>
+        <p className="text-base-content/70 max-w-3xl">
+          Un proyecto de{" "}
+          <a
+            className="link"
+            href="https://x.com/victorianoi"
+            target="_blank"
+            rel="noreferrer"
           >
+            Victoriano Izquierdo
+          </a>
+          .
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="label cursor-pointer gap-3">
+            <span className="text-sm font-medium">
+              {weighted ? "Ponderado" : "Crudo"}
+            </span>
+            <input
+              type="checkbox"
+              className="toggle toggle-primary"
+              checked={weighted}
+              onChange={(e) => setWeighted(e.target.checked)}
+            />
+            <span className="text-xs text-base-content/60">
+              {weighted
+                ? "usa Ponderación (falta en barómetros antiguos)"
+                : "cuenta por respondiente"}
+            </span>
+          </label>
+        </div>
+      </header>
+
+      {errorMsg && (
+        <div className="alert alert-error">
+          <span>⚠️ {errorMsg}</span>
+        </div>
+      )}
+
+      {/* Two-column layout on lg+: charts fill the main column, filters live
+          in a sticky sidebar on the right that stays visible while the charts
+          below update. Below lg the sidebar drops under the charts. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
+          <section>
+            <TimeSeriesChart
+              title="Intención de voto en elecciones generales"
+              data={voteSeries}
+              colors={PARTY_COLORS}
+              seriesOrder={voteOrder}
+              hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
+              loading={busy}
+            />
+          </section>
+
+          <section>
+            <TimeSeriesChart
+              title="Principales problemas (% de respondientes que lo mencionan)"
+              data={problemSeries}
+              colors={problemColors}
+              seriesOrder={problemOrder}
+              seriesLabel={problemLegendLabel}
+              endLabelFormatter={problemEmoji}
+              loading={busy}
+            />
+          </section>
+        </div>
+
+        <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:self-start">
+          <div className="rounded-box border border-base-300 bg-base-100/90 p-4 backdrop-blur">
             {facets ? (
-              <FilterPanel facets={facets} filters={filters} onChange={setFilters} />
+              <FilterPanel
+                facets={facets}
+                filters={filters}
+                onChange={setFilters}
+                variant="stacked"
+              />
             ) : (
-              <p className="text-sm text-base-content/60">Cargando datos…</p>
+              <p className="text-sm text-base-content/60">Cargando filtros…</p>
             )}
           </div>
-        </div>
-      </aside>
-    </>
+        </aside>
+      </div>
+
+      <footer className="flex flex-col gap-3 border-t border-base-300 pt-4 text-xs text-base-content/60 sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          Datos: Centro de Investigaciones Sociológicas (CIS). Código y
+          documentación técnica en{" "}
+          <a
+            className="link"
+            href="https://github.com/victoriano/barometro-cis-viz"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/victoriano/barometro-cis-viz
+          </a>
+          . Pipeline de datos en{" "}
+          <a
+            className="link"
+            href="https://github.com/victoriano/social-sciences-microdata/tree/main/Spain/barometro_cis"
+            target="_blank"
+            rel="noreferrer"
+          >
+            social-sciences-microdata
+          </a>
+          . Dataset publicado en{" "}
+          <a
+            className="link"
+            href="https://huggingface.co/datasets/victoriano/social-sciences-microdata/tree/main/spain/barometro_cis"
+            target="_blank"
+            rel="noreferrer"
+          >
+            HuggingFace
+          </a>
+          .
+        </p>
+        <ThemeSwitcher />
+      </footer>
+    </main>
   );
 }
