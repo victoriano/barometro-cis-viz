@@ -15,17 +15,23 @@ type Props = {
     respondents: number;
     range: string;
   };
+  compact?: boolean;
 };
 
-export function KpiRow({ kpis, meta }: Props) {
+export function KpiRow({ kpis, meta, compact = false }: Props) {
   const theme = useResolvedTheme();
   const t = TOKENS[theme];
+
+  const showMeta = meta && !compact;
+  const gridTemplate = compact
+    ? "repeat(2, 1fr)"
+    : `repeat(${kpis.length}, 1fr)${showMeta ? " 1.4fr" : ""}`;
 
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${kpis.length}, 1fr)${meta ? " 1.4fr" : ""}`,
+        gridTemplateColumns: gridTemplate,
         gap: 0,
         border: `1px solid ${t.line}`,
         borderRadius: 3,
@@ -38,7 +44,16 @@ export function KpiRow({ kpis, meta }: Props) {
           key={k.key}
           style={{
             padding: "12px 14px",
-            borderRight: `1px solid ${t.line}`,
+            borderRight:
+              (compact
+                ? (i + 1) % 2 === 0
+                : i === kpis.length - 1 && !showMeta)
+                ? "none"
+                : `1px solid ${t.line}`,
+            borderBottom:
+              compact && i < kpis.length - 2
+                ? `1px solid ${t.line}`
+                : "none",
             display: "flex",
             flexDirection: "column",
             gap: 4,
@@ -97,7 +112,7 @@ export function KpiRow({ kpis, meta }: Props) {
           </div>
         </div>
       ))}
-      {meta && (
+      {showMeta && meta && (
         <div
           style={{
             padding: "12px 14px",

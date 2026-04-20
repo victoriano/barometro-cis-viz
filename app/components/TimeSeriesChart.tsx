@@ -1,8 +1,16 @@
 import ReactECharts from "echarts-for-react";
 import { useMemo } from "react";
 import type { PoliticalEvent } from "../lib/events";
-import { MONO, TOKENS } from "../lib/theme";
+import { MONO, PARTY_COLORS, TOKENS } from "../lib/theme";
 import { useResolvedTheme } from "../lib/useResolvedTheme";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 export type TimeSeriesPoint = {
   date: string;
@@ -21,6 +29,7 @@ type Props = {
   endLabelFormatter?: (name: string) => string;
   baselineData?: TimeSeriesPoint[];
   events?: PoliticalEvent[];
+  highlightedEventId?: string | null;
   loading?: boolean;
   height?: number;
 };
@@ -60,6 +69,7 @@ export function TimeSeriesChart({
   endLabelFormatter,
   baselineData,
   events = [],
+  highlightedEventId,
   loading = false,
   height = 260,
 }: Props) {
@@ -93,27 +103,87 @@ export function TimeSeriesChart({
 
     const hidden = new Set(hiddenByDefault ?? []);
 
-    // Event markLines — amber vertical lines on the x-axis with a short
-    // label above. Use solid for elections, dashed for everything else.
+    // Event markLines — amber vertical lines on the x-axis. Labels are
+    // hidden by default (too many events crowd the chart) and revealed
+    // on hover. The axis tooltip also enriches with matching events.
     const relevantEvents = events.filter((e) =>
       dates.some((d) => d.slice(0, 7) === e.date.slice(0, 7)),
     );
-    const markLineData = relevantEvents.map((e) => ({
-      xAxis: `${e.date.slice(0, 7)}-01`,
-      label: {
-        formatter: e.label,
-        color: t.textDim,
-        fontFamily: MONO,
-        fontSize: 9,
-        position: "insideEndTop" as const,
-        distance: 4,
-      },
-      lineStyle: {
-        color: t.accentLine,
-        type: e.kind === "election" ? "solid" : "dashed",
-        width: 1,
-      },
-    }));
+    const eventsByMonth = new Map<string, PoliticalEvent[]>();
+    for (const ev of relevantEvents) {
+      const ym = ev.date.slice(0, 7);
+      const list = eventsByMonth.get(ym) ?? [];
+      list.push(ev);
+      eventsByMonth.set(ym, list);
+    }
+    const markLineData = relevantEvents.map((e) => {
+      const isHighlight = highlightedEventId != null && e.id === highlightedEventId;
+      return {
+        xAxis: `${e.date.slice(0, 7)}-01`,
+        name: e.id,
+        label: {
+          show: isHighlight,
+          formatter: e.label,
+          color: isHighlight ? t.text : t.textDim,
+          backgroundColor: isHighlight ? t.tooltipBg : "transparent",
+          borderColor: isHighlight ? t.accent : "transparent",
+          borderWidth: isHighlight ? 1 : 0,
+          padding: isHighlight ? [3, 5] : 0,
+          fontFamily: MONO,
+          fontSize: isHighlight ? 10 : 9,
+          fontWeight: isHighlight ? 600 : 400,
+          position: "insideEndTop" as const,
+          distance: 4,
+        },
+        emphasis: {
+          label: {
+            show: true,
+            formatter: e.label,
+            color: t.text,
+            backgroundColor: t.tooltipBg,
+            borderColor: t.accentLine,
+            borderWidth: 1,
+            padding: [3, 5],
+            fontFamily: MONO,
+            fontSize: 9.5,
+            position: "insideEndTop" as const,
+            distance: 4,
+          },
+          lineStyle: { color: t.accent, width: 2 },
+        },
+        lineStyle: {
+          color: isHighlight ? t.accent : t.accentLine,
+          type: isHighlight
+            ? ("solid" as const)
+            : e.kind === "election"
+              ? ("solid" as const)
+              : ("dashed" as const),
+          width: isHighlight ? 2.5 : 1,
+          shadowBlur: isHighlight ? 8 : 0,
+          shadowColor: isHighlight ? t.accent : "transparent",
+        },
+      };
+    });
+
+    // Soft amber band around the selected event's month so the user can see
+    // "when did that event happen" even without squinting at a 1px line.
+    const highlightedEvent = highlightedEventId
+      ? relevantEvents.find((e) => e.id === highlightedEventId)
+      : null;
+    const markAreaData = highlightedEvent
+      ? [
+          [
+            { xAxis: `${highlightedEvent.date.slice(0, 7)}-01` },
+            {
+              xAxis: (() => {
+                const d = new Date(`${highlightedEvent.date.slice(0, 7)}-01T00:00:00Z`);
+                d.setUTCMonth(d.getUTCMonth() + 1);
+                return d.toISOString().slice(0, 10);
+              })(),
+            },
+          ],
+        ]
+      : [];
 
     const series = ordered.map((name, idx) => {
       const seriesColor = colors?.[name] ?? DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
@@ -150,9 +220,52 @@ export function TimeSeriesChart({
           idx === 0 && markLineData.length
             ? {
                 symbol: "none" as const,
-                silent: true,
+                silent: false,
                 data: markLineData,
-                label: { show: false },
+                // Default label hidden; per-item label.show toggles the
+                // selected event's label on. Without this flag explicitly
+                // set here, ECharts would NOT honour per-item overrides.
+                label: { show: false, formatter: " " },
+              }
+            : undefined,
+        markArea:
+          idx === 0 && markAreaData.length
+            ? {
+                silent: true,
+                itemStyle: {
+                  color: t.accent,
+                  opacity: 0.18,
+                  borderColor: t.accent,
+                  borderWidth: 1,
+                },
+                data: markAreaData,
+              }
+            : undefined,
+        markPoint:
+          idx === 0 && highlightedEvent
+            ? {
+                symbol: "pin",
+                symbolSize: 32,
+                silent: true,
+                itemStyle: {
+                  color: t.accent,
+                  borderColor: t.accent,
+                  shadowBlur: 8,
+                  shadowColor: t.accent,
+                },
+                label: {
+                  show: true,
+                  formatter: "★",
+                  color: "#0b0d10",
+                  fontSize: 13,
+                  fontWeight: 700,
+                },
+                data: [
+                  {
+                    xAxis: `${highlightedEvent.date.slice(0, 7)}-01`,
+                    y: 0,
+                  },
+                ],
               }
             : undefined,
       };
@@ -190,7 +303,8 @@ export function TimeSeriesChart({
         borderWidth: 1,
         padding: [8, 10],
         textStyle: { color: t.text, fontFamily: MONO, fontSize: 11 },
-        extraCssText: "max-width: 360px;",
+        extraCssText:
+          "max-width: 320px; white-space: normal; word-break: break-word; overflow-wrap: anywhere;",
         formatter: (params: unknown) => {
           const items = Array.isArray(params) ? [...params] : [];
           items.sort((a: any, b: any) => {
@@ -235,7 +349,62 @@ export function TimeSeriesChart({
               ${subline ? `<div style="color:${t.textMute};font-size:10px;padding-left:18px;margin-bottom:2px;letter-spacing:0.3px;">${subline}</div>` : ""}
             `;
           });
-          return `<div style="font-weight:600;margin-bottom:6px;letter-spacing:0.5px;color:${t.textDim};">${date}</div>${rows.join("")}`;
+          const ym = date.slice(0, 7);
+          const hitEvents = eventsByMonth.get(ym) ?? [];
+          let eventsHtml = "";
+          if (hitEvents.length) {
+            const blocks = hitEvents
+              .slice(0, 3)
+              .map((ev) => {
+                const kindColor =
+                  ev.kind === "election"
+                    ? t.accent
+                    : ev.kind === "crisis"
+                      ? t.bad
+                      : ev.kind === "moment"
+                        ? t.good
+                        : t.textMute;
+                const impactsHtml = ev.impacts
+                  .slice(0, 4)
+                  .map((imp) => {
+                    const color =
+                      imp.direction === "+"
+                        ? t.good
+                        : imp.direction === "-"
+                          ? t.bad
+                          : t.textMute;
+                    const arrow =
+                      imp.direction === "+"
+                        ? "▲"
+                        : imp.direction === "-"
+                          ? "▼"
+                          : "—";
+                    const swatch = PARTY_COLORS[imp.party];
+                    const sw = swatch
+                      ? `<span style="display:inline-block;width:6px;height:6px;background:${swatch};border-radius:1px;margin-right:3px;vertical-align:middle;"></span>`
+                      : "";
+                    return `<span style="display:inline-flex;align-items:center;color:${color};font-size:10px;margin-right:6px;white-space:nowrap;">${sw}${escapeHtml(imp.party)} <span style="font-size:8px;margin-left:2px;">${arrow}</span></span>`;
+                  })
+                  .join("");
+                return `
+                  <div style="padding:6px 0 0;margin-top:6px;border-top:1px dashed ${t.line};max-width:300px;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                      <span style="display:inline-block;width:6px;height:6px;background:${kindColor};border-radius:1px;flex-shrink:0;"></span>
+                      <span style="font-size:9px;color:${t.textMute};letter-spacing:0.4px;text-transform:uppercase;">${escapeHtml(ev.date)} · ${"●".repeat(ev.relevance)}</span>
+                    </div>
+                    <div style="font-family:inherit;font-size:11px;color:${t.text};font-weight:500;line-height:1.3;margin-bottom:3px;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(ev.headline)}</div>
+                    ${impactsHtml ? `<div style="line-height:1.8;white-space:normal;">${impactsHtml}</div>` : ""}
+                  </div>
+                `;
+              })
+              .join("");
+            const more =
+              hitEvents.length > 3
+                ? `<div style="font-size:9px;color:${t.textMute};margin-top:4px;letter-spacing:0.3px;">+${hitEvents.length - 3} evento(s) más</div>`
+                : "";
+            eventsHtml = blocks + more;
+          }
+          return `<div style="font-weight:600;margin-bottom:6px;letter-spacing:0.5px;color:${t.textDim};">${escapeHtml(date)}</div>${rows.join("")}${eventsHtml}`;
         },
       },
       legend: {
@@ -301,6 +470,7 @@ export function TimeSeriesChart({
     data,
     baselineData,
     events,
+    highlightedEventId,
     yAxisFormatter,
     colors,
     t,
@@ -326,11 +496,10 @@ export function TimeSeriesChart({
         </div>
       )}
       <ReactECharts
-        key={theme}
+        key={`${theme}:${highlightedEventId ?? ""}`}
         option={option}
         style={{ height, width: "100%" }}
         notMerge
-        lazyUpdate
       />
     </div>
   );
