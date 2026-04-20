@@ -163,16 +163,16 @@ export default function Home() {
           Barómetro del CIS — evolución del voto y los principales problemas
         </h1>
         <p className="text-base-content/70 max-w-3xl">
-          Un proyecto de Victoriano Izquierdo —{" "}
+          Un proyecto de{" "}
           <a
             className="link"
             href="https://x.com/victorianoi"
             target="_blank"
             rel="noreferrer"
           >
-            @victorianoi
-          </a>{" "}
-          en X.
+            Victoriano Izquierdo
+          </a>
+          .
         </p>
         <div className="flex items-center gap-4">
           <label className="label cursor-pointer gap-3">
