@@ -130,6 +130,29 @@ export type ProblemRow = { date: string; problema: string; pct: number };
 const NOISE_PROBLEM_SQL = `
 CASE WHEN LOWER(prob) IN ('n.c.', 'n.s.', 'ninguno', 'ninguno, en especial') THEN NULL ELSE prob END`;
 
+/**
+ * Fold slight wording variants (singular/plural, truncated COVID labels, etc.)
+ * into the canonical label that ``app/lib/problems.ts`` uses as its lookup
+ * key. Keeping the CASE WHEN here means a single query returns consistently
+ * named series that stay in sync with the metadata table.
+ */
+function normalizeProblemSQL(col: string): string {
+  return `CASE
+    WHEN ${col} LIKE 'La crisis económica%' THEN 'Crisis económica'
+    WHEN ${col} LIKE 'Los peligros para la salud: COVID%' THEN 'COVID-19'
+    WHEN ${col} = 'Los problemas políticos en general' THEN 'Problemas políticos'
+    WHEN ${col} LIKE 'El mal comportamiento%' THEN 'Mal comportamiento políticos'
+    WHEN ${col} LIKE 'Los problemas relacionados con la calidad%' THEN 'Calidad del empleo'
+    WHEN ${col} LIKE 'El Gobierno y partidos%' THEN 'Gobierno y partidos'
+    WHEN ${col} LIKE 'Los problemas de índole social%' THEN 'Problemas de índole social'
+    WHEN ${col} LIKE 'Las desigualdades%' THEN 'Las desigualdades'
+    WHEN ${col} LIKE 'La falta de acuerdos%' THEN 'Falta de acuerdos'
+    WHEN ${col} = 'El funcionamiento de los servicios públicos' THEN 'Funcionamiento servicios públicos'
+    WHEN ${col} LIKE 'Los problemas relacionados con la juventud%' THEN 'Juventud'
+    ELSE ${col}
+  END`;
+}
+
 // Top-N problems by overall mention share. We compute this once per filter
 // change to pick which problems show in the chart.
 function whereAnd(filters: FilterState, extra: string): string {
@@ -148,11 +171,14 @@ export async function fetchTopProblems(
   const weight = weighted ? PESO_SQL : "1.0";
   const sql = `
     WITH long AS (
-      SELECT "Primer problema" AS prob, ${weight} AS w FROM barometros ${whereAnd(filters, '"Primer problema" IS NOT NULL')}
+      SELECT ${normalizeProblemSQL('"Primer problema"')} AS prob, ${weight} AS w
+        FROM barometros ${whereAnd(filters, '"Primer problema" IS NOT NULL')}
       UNION ALL
-      SELECT "Segundo problema", ${weight} FROM barometros ${whereAnd(filters, '"Segundo problema" IS NOT NULL')}
+      SELECT ${normalizeProblemSQL('"Segundo problema"')}, ${weight}
+        FROM barometros ${whereAnd(filters, '"Segundo problema" IS NOT NULL')}
       UNION ALL
-      SELECT "Tercer problema", ${weight} FROM barometros ${whereAnd(filters, '"Tercer problema" IS NOT NULL')}
+      SELECT ${normalizeProblemSQL('"Tercer problema"')}, ${weight}
+        FROM barometros ${whereAnd(filters, '"Tercer problema" IS NOT NULL')}
     ),
     cleaned AS (
       SELECT ${NOISE_PROBLEM_SQL} AS prob, w FROM long
@@ -174,11 +200,14 @@ export async function fetchProblemEvolution(
   const list = sqlList(problems);
   const sql = `
     WITH long AS (
-      SELECT date_of_study, "Primer problema" AS prob, ${weight} AS w FROM barometros ${whereAnd(filters, '"Primer problema" IS NOT NULL')}
+      SELECT date_of_study, ${normalizeProblemSQL('"Primer problema"')} AS prob, ${weight} AS w
+        FROM barometros ${whereAnd(filters, '"Primer problema" IS NOT NULL')}
       UNION ALL
-      SELECT date_of_study, "Segundo problema", ${weight} FROM barometros ${whereAnd(filters, '"Segundo problema" IS NOT NULL')}
+      SELECT date_of_study, ${normalizeProblemSQL('"Segundo problema"')}, ${weight}
+        FROM barometros ${whereAnd(filters, '"Segundo problema" IS NOT NULL')}
       UNION ALL
-      SELECT date_of_study, "Tercer problema", ${weight} FROM barometros ${whereAnd(filters, '"Tercer problema" IS NOT NULL')}
+      SELECT date_of_study, ${normalizeProblemSQL('"Tercer problema"')}, ${weight}
+        FROM barometros ${whereAnd(filters, '"Tercer problema" IS NOT NULL')}
     ),
     denom AS (
       -- Total respondent-weight per month, counting each respondent once.

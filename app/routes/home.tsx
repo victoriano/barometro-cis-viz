@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Route } from "./+types/home";
 import { FilterPanel } from "../components/FilterPanel";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { TimeSeriesChart, type TimeSeriesPoint } from "../components/TimeSeriesChart";
+import {
+  problemColor,
+  problemEmoji,
+  problemLegendLabel,
+} from "../lib/problems";
 import {
   EMPTY_FILTERS,
   fetchFacetValues,
@@ -44,15 +50,29 @@ const PARTY_COLORS: Record<string, string> = {
   Otros: "#6b7280",
 };
 
+// Series the user almost never wants on screen on the default view.
+const DEFAULT_HIDDEN_PARTIES = ["Otros"];
+
+/** Order series by their value on the most recent month, descending. */
+function orderByLastMonth<T extends { date: string; series: string; value: number }>(
+  rows: T[],
+): string[] {
+  if (rows.length === 0) return [];
+  const lastDate = rows.reduce((max, r) => (r.date > max ? r.date : max), "");
+  const lastMonth = rows.filter((r) => r.date === lastDate);
+  return lastMonth
+    .sort((a, b) => b.value - a.value)
+    .map((r) => r.series);
+}
+
 export default function Home() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [weighted, setWeighted] = useState(false);
   const [facets, setFacets] = useState<Record<keyof FilterState, FacetValue[]> | null>(null);
   const [vote, setVote] = useState<VotingRow[]>([]);
   const [problems, setProblems] = useState<ProblemRow[]>([]);
-  const [status, setStatus] = useState<"booting" | "ready" | "loading" | "error">(
-    "booting",
-  );
+  const [booted, setBooted] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Initial boot: warm up DuckDB + facets.
@@ -63,12 +83,12 @@ export default function Home() {
         const values = await fetchFacetValues();
         if (cancelled) return;
         setFacets(values);
-        setStatus("ready");
+        setBooted(true);
       } catch (err) {
         console.error(err);
         if (cancelled) return;
         setErrorMsg(err instanceof Error ? err.message : "Error cargando datos");
-        setStatus("error");
+        setBusy(false);
       }
     })();
     return () => {
@@ -78,10 +98,10 @@ export default function Home() {
 
   // Refresh chart data on filter / weighted toggle.
   useEffect(() => {
-    if (status === "booting" || status === "error") return;
+    if (!booted) return;
     let cancelled = false;
     (async () => {
-      setStatus("loading");
+      setBusy(true);
       try {
         const [voteRows, topProblems] = await Promise.all([
           fetchVoteEvolution(filters, weighted),
@@ -91,18 +111,19 @@ export default function Home() {
         if (cancelled) return;
         setVote(voteRows);
         setProblems(problemRows);
-        setStatus("ready");
+        setErrorMsg(null);
       } catch (err) {
         console.error(err);
         if (cancelled) return;
         setErrorMsg(err instanceof Error ? err.message : "Error ejecutando query");
-        setStatus("error");
+      } finally {
+        if (!cancelled) setBusy(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [filters, weighted, status === "booting" ? "" : "ready"]);
+  }, [filters, weighted, booted]);
 
   const voteSeries: TimeSeriesPoint[] = useMemo(
     () =>
@@ -124,14 +145,26 @@ export default function Home() {
     [problems],
   );
 
-  const isLoading = status === "loading" || status === "booting";
+  const voteOrder = useMemo(() => orderByLastMonth(voteSeries), [voteSeries]);
+  const problemOrder = useMemo(() => orderByLastMonth(problemSeries), [problemSeries]);
+
+  const problemColors = useMemo(() => {
+    const acc: Record<string, string> = {};
+    for (const name of new Set(problemSeries.map((p) => p.series))) {
+      acc[name] = problemColor(name);
+    }
+    return acc;
+  }, [problemSeries]);
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
       <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Barómetro del CIS — evolución del voto y los principales problemas
-        </h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Barómetro del CIS — evolución del voto y los principales problemas
+          </h1>
+          <ThemeSwitcher />
+        </div>
         <p className="text-base-content/70 max-w-3xl">
           Una visualización del microdato mensual del Centro de Investigaciones
           Sociológicas. Los datos se cargan en el navegador vía DuckDB-wasm
@@ -147,7 +180,7 @@ export default function Home() {
           . Código en{" "}
           <a
             className="link"
-            href="https://github.com/victoriano/social-sciences-microdata"
+            href="https://github.com/victoriano/barometro-cis-viz"
             target="_blank"
             rel="noreferrer"
           >
@@ -175,7 +208,7 @@ export default function Home() {
         </div>
       </header>
 
-      {status === "error" && (
+      {errorMsg && (
         <div className="alert alert-error">
           <span>⚠️ {errorMsg}</span>
         </div>
@@ -186,7 +219,9 @@ export default function Home() {
           title="Intención de voto en elecciones generales"
           data={voteSeries}
           colors={PARTY_COLORS}
-          loading={isLoading}
+          seriesOrder={voteOrder}
+          hiddenByDefault={DEFAULT_HIDDEN_PARTIES}
+          loading={busy}
         />
       </section>
 
@@ -194,7 +229,11 @@ export default function Home() {
         <TimeSeriesChart
           title="Principales problemas (% de respondientes que lo mencionan)"
           data={problemSeries}
-          loading={isLoading}
+          colors={problemColors}
+          seriesOrder={problemOrder}
+          seriesLabel={problemLegendLabel}
+          endLabelFormatter={problemEmoji}
+          loading={busy}
         />
       </section>
 
